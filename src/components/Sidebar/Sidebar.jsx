@@ -95,10 +95,11 @@ const Sidebar = ({ navigation, role }) => {
   // ─────────────────────────────────────
 
   const handleSubMenuPress = (parent, subItem) => {
-    navigation.navigate(parent, {
-      subScreen: subItem.key,
-    });
+    // Use screenName if provided, otherwise use parent with subScreen param
+    const screenName = subItem.screenName || parent;
+    const params = subItem.screenName ? {} : { subScreen: subItem.key };
 
+    navigation.navigate(screenName, params);
     setExpandedMenu(null);
   };
 
@@ -127,8 +128,6 @@ const Sidebar = ({ navigation, role }) => {
               resizeMode="contain"
             />
           </View>
-
-  
         </View>
 
         {/* Menu Section */}

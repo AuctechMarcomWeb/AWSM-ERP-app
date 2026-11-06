@@ -26,7 +26,7 @@ import BottomNav from '../../../components/BottomNav/BottomNav';
 const SettingsScreen = ({ navigation, onLogout }) => {
   const { loginData, profile } = useSelector(state => state.user);
 
-  const fullName = profile?.FullName || loginData?.Name || 'Associate';
+  const fullName = profile?.FullName || loginData?.Name || 'Member';
   const email = profile?.Email || loginData?.Email || 'Not Available';
 
   const handleTabPress = key => {
@@ -142,7 +142,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
                 {email}
               </Text>
 
-              <Text style={styles.profileStatus}>Associate Account</Text>
+              <Text style={styles.profileStatus}>Member Account</Text>
             </View>
 
             <MaterialCommunityIcons
@@ -160,7 +160,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               icon="account-edit-outline"
               title="Edit Profile"
               subtitle="Update your personal information"
-              onPress={() => navigation?.navigate('ProfileScreen')}
+              onPress={() => navigation?.navigate('EditProfileScreen')}
             />
 
             <View style={styles.divider} />
@@ -240,7 +240,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
 
           {/* App Version */}
           <View style={styles.footer}>
-            <Text style={styles.footerTitle}>AWSM Associate App</Text>
+            <Text style={styles.footerTitle}>AWSM Member App</Text>
 
             <Text style={styles.version}>Version 1.0.0</Text>
 

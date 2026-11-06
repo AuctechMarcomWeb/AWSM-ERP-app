@@ -57,6 +57,8 @@ const BottomNav = ({ active = 'Dashboard', onPress }) => {
       navigation.navigate('ProfileScreen');
     } else if (tabKey === 'SettingScreen') {
       navigation.navigate('SettingScreen');
+    } else if (tabKey === 'Posts') {
+      navigation.navigate('Posts');
     } else if (tabKey === 'More') {
       // More navigation - open drawer
       navigation.openDrawer();

@@ -20,6 +20,32 @@ import ProfileScreen from '../Screens/Common/Profile/Profile';
 import SettingsScreen from '../Screens/Common/SettingScreen/SettingScreen';
 import MasterRegisterScreen from '../Screens/Common/MasterRegister/MasterRegister';
 import MemberProfileScreen from '../Screens/Common/MemberProfile/MemberProfile';
+import LetterRecordScreen from '../Screens/Common/Letterrecordscreen/Letterrecordscreen';
+import MessagingScreen from '../Screens/Common/Messagingscreen /Messagingscreen ';
+import ComposeMessageScreen from '../Screens/Common/Composemessagescreen/Composemessagescreen';
+import ExpenditureScreen from '../Screens/Common/Expenditurescreen/Expenditurescreen';
+import AddExpenditureScreen from '../Screens/Common/Expenditurescreen/Addexpenditurescreen';
+import ReceivePaymentScreen from '../Screens/Common/Collection/Receivepaymentscreen/Receivepaymentscreen';
+import TransactionsScreen from '../Screens/Common/Collection/Transactionsscreen/Transactionsscreen';
+import CollectionReportScreen from '../Screens/Common/Collection/Collectionreportscreen/Collectionreportscreen';
+import LedgerScreen from '../Screens/Common/Collection/Ledgerscreen/Ledgerscreen';
+import ReferralLinkScreen from '../Screens/Common/Collection/Referrallinkscreen/Referrallinkscreen';
+import PaymentListScreen from '../Screens/Common/Collection/Paymentlistscreen/Paymentlistscreen';
+import FardeHisaabScreen from '../Screens/Common/Collection/Fardehisaabscreen/Fardehisaabscreen';
+import Addfardehisaabscreen from '../Screens/Common/Collection/Fardehisaabscreen/Addfardehisaabscreen.jsx';
+
+import IncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fardehisaabscreen/IncomeExpenditureSummaryScreen/IncomeExpenditureSummaryScreen';
+import AddIncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fardehisaabscreen/IncomeExpenditureSummaryScreen/AddIncomeExpenditureSummaryScreen';
+import PostsScreen from '../Screens/Common/PostsScreen/MainScreen/MainScreen';
+import WazifaApplicationsScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationsScreen/WazifaApplicationsScreen.jsx';
+import WazifaApplicationSubmittedScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationSubmittedScreen/WazifaApplicationSubmittedScreen.jsx';
+import AddWazifaApplicationScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/AddWazifaApplicationScreen/AddWazifaApplicationScreen.jsx';
+import VerifyWazifaListScreen from '../Screens/Common/Wafizedar/VerifyWazifaListScreen/VerifyWazifaListScreen.jsx';
+
+import RecentTransactionsScreen from '../Screens/Common/Wafizedar/RecentTransactionsScreen/RecentTransactionsScreen.jsx';
+import WazifaDueReportScreen from '../Screens/Common/Wafizedar/RecentTransactionsScreen/RecentTransactionsScreen.jsx';
+import LedgerOfWazifadarScreen from '../Screens/Common/Wafizedar/LedgerOfWazifadarScreen/LedgerOfWazifadarScreen.jsx';
+import EditProfileScreen from '../Screens/Common/EditProfileScreen/EditProfileScreen.jsx';
 
 const Drawer = createDrawerNavigator();
 
@@ -87,6 +113,18 @@ const AuthNavigation = () => {
         }}
       />
 
+      {/* Posts Screen - Universal */}
+      <Drawer.Screen
+        name="Posts"
+        component={PostsScreen}
+        options={{
+          title: 'Posts',
+          drawerIcon: ({ color }) => (
+            <Icon name="newspaper" size={20} color={color} />
+          ),
+        }}
+      />
+
       {/* Member Profile Screen */}
       <Drawer.Screen
         name="MemberProfile"
@@ -99,13 +137,270 @@ const AuthNavigation = () => {
         }}
       />
 
+      {/* Letter Record Screen */}
+      <Drawer.Screen
+        name="LetterRecord"
+        component={LetterRecordScreen}
+        options={{
+          title: 'Letter Record',
+          drawerIcon: ({ color }) => (
+            <Icon name="email" size={20} color={color} />
+          ),
+        }}
+      />
+
+      {/* Messaging Screen */}
+      <Drawer.Screen
+        name="Messaging"
+        component={MessagingScreen}
+        options={{
+          title: 'Messaging',
+          drawerIcon: ({ color }) => (
+            <Icon name="message" size={20} color={color} />
+          ),
+        }}
+      />
+
+      {/* Compose Message Screen */}
+      <Drawer.Screen
+        name="ComposeMessage"
+        component={ComposeMessageScreen}
+        options={{
+          title: 'Compose Message',
+          drawerIcon: ({ color }) => (
+            <Icon name="pencil" size={20} color={color} />
+          ),
+        }}
+      />
+
+      {/* Expenditure Screen */}
+      <Drawer.Screen
+        name="Expenditure"
+        component={ExpenditureScreen}
+        options={{
+          title: 'Expenditure',
+          drawerIcon: ({ color }) => (
+            <Icon name="cash-minus" size={20} color={color} />
+          ),
+        }}
+      />
+
+      {/* Add Expenditure Screen */}
+      <Drawer.Screen
+        name="AddExpenditure"
+        component={AddExpenditureScreen}
+        options={{
+          title: 'Add Expenditure',
+          drawerIcon: ({ color }) => (
+            <Icon name="plus-circle" size={20} color={color} />
+          ),
+        }}
+      />
+
+      {/* Collection Screens */}
+      <Drawer.Screen
+        name="Payment"
+        component={ReceivePaymentScreen}
+        options={{
+          title: 'Payment',
+          drawerIcon: ({ color }) => (
+            <Icon name="cash-plus" size={20} color={color} />
+          ),
+        }}
+      />
+
+      <Drawer.Screen
+        name="Transactions"
+        component={TransactionsScreen}
+        options={{
+          title: 'Transactions',
+          drawerIcon: ({ color }) => (
+            <Icon name="swap-horizontal" size={20} color={color} />
+          ),
+        }}
+      />
+
+      <Drawer.Screen
+        name="Reports"
+        component={CollectionReportScreen}
+        options={{
+          title: 'Reports',
+          drawerIcon: ({ color }) => (
+            <Icon name="chart-line" size={20} color={color} />
+          ),
+        }}
+      />
+
+      <Drawer.Screen
+        name="LedgerMembers"
+        component={LedgerScreen}
+        options={{
+          title: 'Ledger Members',
+          drawerIcon: ({ color }) => (
+            <Icon name="book" size={20} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="EditProfileScreen"
+        component={EditProfileScreen}
+        options={{
+          title: 'EditProfileScreen',
+          drawerIcon: ({ color }) => (
+            <Icon name="book" size={20} color={color} />
+          ),
+        }}
+      />
+
+      <Drawer.Screen
+        name="ReferralLink"
+        component={ReferralLinkScreen}
+        options={{
+          title: 'Referral Link',
+          drawerIcon: ({ color }) => (
+            <Icon name="link" size={20} color={color} />
+          ),
+        }}
+      />
+
+      <Drawer.Screen
+        name="PaymentList"
+        component={PaymentListScreen}
+        options={{
+          title: 'Payment List',
+          drawerIcon: ({ color }) => (
+            <Icon name="list" size={20} color={color} />
+          ),
+        }}
+      />
+
+      {/* Farde Hisaab Screen */}
+      <Drawer.Screen
+        name="FardeHisaab"
+        component={FardeHisaabScreen}
+        options={{
+          title: 'Farde Hisaab',
+          drawerIcon: ({ color }) => (
+            <Icon name="notebook" size={20} color={color} />
+          ),
+        }}
+      />
+
+      {/* Add Farde Hisaab Screen */}
+      <Drawer.Screen
+        name="AddFardeHisaab"
+        component={Addfardehisaabscreen}
+        options={{
+          title: 'Add Farde Hisaab',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+
+      <Drawer.Screen
+        name="IncomeExpenditure"
+        component={IncomeExpenditureSummaryScreen}
+        options={{
+          title: 'Income & Expenditure',
+          drawerIcon: ({ color }) => (
+            <Icon name="chart-box" size={20} color={color} />
+          ),
+        }}
+      />
+
+      <Drawer.Screen
+        name="AddIncomeExpenditure"
+        component={AddIncomeExpenditureSummaryScreen}
+        options={{
+          title: 'Add Income & Expenditure',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="WazifaApplicationsScreen"
+        component={WazifaApplicationsScreen}
+        options={{
+          title: 'WazifaApplications Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="WazifaApplicationSubmittedScreen"
+        component={WazifaApplicationSubmittedScreen}
+        options={{
+          title: 'WazifaApplicationSubmitted Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddWazifaApplicationScreen"
+        component={AddWazifaApplicationScreen}
+        options={{
+          title: 'AddWazifaApplication Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="VerifyWazifaListScreen"
+        component={VerifyWazifaListScreen}
+        options={{
+          title: 'VerifyWazifaList Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="RecentTransactionsScreen"
+        component={RecentTransactionsScreen}
+        options={{
+          title: 'RecentTransactions Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="LedgerOfWazifadarScreen"
+        component={LedgerOfWazifadarScreen}
+        options={{
+          title: 'LedgerOfWazifadar Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+
+      <Drawer.Screen
+        name="WazifaDueReportScreen"
+        component={WazifaDueReportScreen}
+        options={{
+          title: 'WazifaDueReport Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+
       {/* All Menu Screens from MENU_CONFIG */}
       {Object.entries(MENU_CONFIG)
-        .filter(([menuKey]) => !['Dashboard', 'ProfileScreen', 'SettingScreen', 'MemberProfile'].includes(menuKey))
+        .filter(
+          ([menuKey]) =>
+            ![
+              'Dashboard',
+              'ProfileScreen',
+              'SettingScreen',
+              'MemberProfile',
+              'LetterRecord',
+              'Messaging',
+              'ComposeMessage',
+              'Expenditure',
+              'AddExpenditure',
+              'Payment',
+              'Transactions',
+              'Reports',
+              'LedgerMembers',
+              'ReferralLink',
+              'PaymentList',
+              'FardeHisaab',
+              'IncomeExpenditure',
+            ].includes(menuKey),
+        )
         .map(([menuKey, menuConfig]) => {
           // Map actual screen components for known menus
           let ScreenComponent;
-          
+
           if (menuKey === 'MasterRegister') {
             ScreenComponent = MasterRegisterScreen;
           } else {

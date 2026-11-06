@@ -49,7 +49,7 @@ const ProfileScreen = ({ navigation }) => {
     profile?.FullName ||
     associateDetails?.FullName ||
     loginData?.Name ||
-    'Associate';
+    'Member';
 
   const email =
     profile?.Email ||
@@ -69,7 +69,7 @@ const ProfileScreen = ({ navigation }) => {
     associateDetails?.Designation ||
     profile?.Designation ||
     loginData?.Designation ||
-    'Associate Member';
+    ' Member';
 
   const memberId =
     associateDetails?.MemberId ||
@@ -210,7 +210,7 @@ const ProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               activeOpacity={0.8}
               style={styles.editButton}
-              onPress={() => navigation?.navigate('EditProfile')}
+              onPress={() => navigation?.navigate('EditProfileScreen')}
             >
               <MaterialCommunityIcons
                 name="pencil-outline"

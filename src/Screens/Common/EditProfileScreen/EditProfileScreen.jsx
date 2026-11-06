@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   },
 
   photoSubtitle: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: Colors.textMuted,
     marginTop: hp('0.4%'),
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   },
 
   footerText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: Colors.textMuted,
   },

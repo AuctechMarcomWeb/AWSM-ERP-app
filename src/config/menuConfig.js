@@ -24,8 +24,18 @@ export const MENU_CONFIG = {
     icon: 'email',
     modules: ['communication_letter', 'communication_messaging'],
     subs: [
-      { key: 'Letters', module: 'communication_letter', icon: 'email' },
-      { key: 'Messages', module: 'communication_messaging', icon: 'message' },
+      {
+        key: 'LetterRecord',
+        module: 'communication_letter',
+        icon: 'email',
+        screenName: 'LetterRecord',
+      },
+      {
+        key: 'Messaging',
+        module: 'communication_messaging',
+        icon: 'message',
+        screenName: 'Messaging',
+      },
     ],
   },
 
@@ -55,43 +65,48 @@ export const MENU_CONFIG = {
         key: 'Payment',
         module: 'collection_receive_payment',
         icon: 'cash-plus',
+        screenName: 'Payment',
       },
       {
         key: 'Transactions',
         module: 'collection_transaction',
         icon: 'swap-horizontal',
+        screenName: 'Transactions',
       },
-      { key: 'Reports', module: 'collection_report', icon: 'chart-line' },
       {
-        key: 'Ledger Members',
+        key: 'Reports',
+        module: 'collection_report',
+        icon: 'chart-line',
+        screenName: 'Reports',
+      },
+      {
+        key: 'LedgerMembers',
         module: 'collection_ledger_members',
         icon: 'book',
+        screenName: 'LedgerMembers',
       },
       {
-        key: 'Referral Link',
+        key: 'ReferralLink',
         module: 'collection_referral_link',
         icon: 'link',
+        screenName: 'ReferralLink',
       },
-      { key: 'Payment List', module: 'collection_payment_list', icon: 'list' },
       {
-        key: 'Farde Hisaab Reports',
+        key: 'PaymentList',
+        module: 'collection_payment_list',
+        icon: 'list',
+        screenName: 'PaymentList',
+      },
+      {
+        key: 'FardeHisaabReports',
         module: 'collection_farde_hisaab_reports',
         icon: 'file-chart',
-      },
-      {
-        key: 'Farde Hisaab',
-        module: 'collection_farde_hisaab',
-        icon: 'notebook',
+        screenName: 'FardeHisaab',
       },
     ],
   },
 
   // Income & Expenditure (part of Collection module)
-  IncomeExpenditure: {
-    label: 'Income & Expenditure',
-    icon: 'chart-box',
-    modules: ['collection_income_expenditure'],
-  },
 
   // Wazifedaar (5 sub-items)
   Wazifedaar: {
@@ -106,18 +121,35 @@ export const MENU_CONFIG = {
     ],
     subs: [
       {
-        key: 'Applications',
+        key: 'Apply Wazifa ',
         module: 'wazifedaar_apply_list',
         icon: 'file-document-outline',
+        screenName: 'WazifaApplicationsScreen',
       },
-      { key: 'Verify', module: 'wazifedaar_verify_list', icon: 'check-circle' },
       {
-        key: 'Transactions',
+        key: 'Verify Wazifa',
+        module: 'wazifedaar_verify_list',
+        icon: 'check-circle',
+        screenName: 'VerifyWazifaListScreen',
+      },
+      {
+        key: 'Recent Transactions',
         module: 'wazifedaar_transactions',
         icon: 'swap-horizontal',
+        screenName: 'RecentTransactionsScreen',
       },
-      { key: 'Ledger', module: 'wazifedaar_ledger', icon: 'book' },
-      { key: 'Reports', module: 'wazifedaar_due_report', icon: 'chart-line' },
+      {
+        key: 'Ledger Of Wazifadar',
+        module: 'wazifedaar_ledger',
+        icon: 'book',
+        screenName: 'LedgerOfWazifadarScreen',
+      },
+      {
+        key: 'WazifaDueReport',
+        module: 'wazifedaar_due_report',
+        icon: 'chart-line',
+        screenName: 'WazifaDueReportScreen',
+      },
     ],
   },
 
