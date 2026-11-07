@@ -163,8 +163,14 @@ export const MENU_CONFIG = {
         key: 'Membership',
         module: 'members_membership',
         icon: 'card-account-details',
+        screenName: 'MembershipScreen',
       },
-      { key: 'List', module: 'members_list', icon: 'format-list-bulleted' },
+      {
+        key: 'List',
+        module: 'members_list',
+        icon: 'format-list-bulleted',
+        screenName: 'MembershipListScreen',
+      },
     ],
   },
 
@@ -182,79 +188,86 @@ export const MENU_CONFIG = {
         key: 'Office Bearers',
         module: 'org_office_bearer',
         icon: 'shield-account',
+        screenName: 'OfficeBearerMasterScreen',
       },
       {
         key: 'Executive Members',
         module: 'org_executive_members',
         icon: 'account-tie',
+
+        screenName: 'ExecutiveMembersScreen',
       },
       {
         key: 'Local Secretaries',
         module: 'org_local_secretaries',
         icon: 'office-building',
+        screenName: 'LocalSecretariesScreen',
       },
     ],
   },
 
   // Masters (9 sub-items)
-  Masters: {
-    label: 'Masters',
-    icon: 'cog',
-    modules: [
-      'master_designation',
-      'master_tenure_year',
-      'master_collected_by',
-      'master_mode_of_payment',
-      'master_bank',
-      'master_fund_type',
-      'master_scholarship_rate',
-      'master_scholarship_date',
-      'master_expense',
-    ],
-    subs: [
-      {
-        key: 'Designation',
-        module: 'master_designation',
-        icon: 'badge-account',
-      },
-      { key: 'Tenure Year', module: 'master_tenure_year', icon: 'calendar' },
-      { key: 'Collected By', module: 'master_collected_by', icon: 'account' },
-      {
-        key: 'Mode of Payment',
-        module: 'master_mode_of_payment',
-        icon: 'credit-card',
-      },
-      { key: 'Bank', module: 'master_bank', icon: 'bank' },
-      { key: 'Fund Type', module: 'master_fund_type', icon: 'wallet' },
-      {
-        key: 'Scholarship Rate',
-        module: 'master_scholarship_rate',
-        icon: 'percent',
-      },
-      {
-        key: 'Scholarship Date',
-        module: 'master_scholarship_date',
-        icon: 'calendar-today',
-      },
-      { key: 'Expense', module: 'master_expense', icon: 'receipt' },
-    ],
-  },
+  // Masters: {
+  //   label: 'Masters',
+  //   icon: 'cog',
+  //   modules: [
+  //     'master_designation',
+  //     'master_tenure_year',
+  //     'master_collected_by',
+  //     'master_mode_of_payment',
+  //     'master_bank',
+  //     'master_fund_type',
+  //     'master_scholarship_rate',
+  //     'master_scholarship_date',
+  //     'master_expense',
+  //   ],
+  //   subs: [
+  //     {
+  //       key: 'Designation',
+  //       module: 'master_designation',
+  //       icon: 'badge-account',
+  //     },
+  //     { key: 'Tenure Year', module: 'master_tenure_year', icon: 'calendar' },
+  //     { key: 'Collected By', module: 'master_collected_by', icon: 'account' },
+  //     {
+  //       key: 'Mode of Payment',
+  //       module: 'master_mode_of_payment',
+  //       icon: 'credit-card',
+  //     },
+  //     { key: 'Bank', module: 'master_bank', icon: 'bank' },
+  //     { key: 'Fund Type', module: 'master_fund_type', icon: 'wallet' },
+  //     {
+  //       key: 'Scholarship Rate',
+  //       module: 'master_scholarship_rate',
+  //       icon: 'percent',
+  //     },
+  //     {
+  //       key: 'Scholarship Date',
+  //       module: 'master_scholarship_date',
+  //       icon: 'calendar-today',
+  //     },
+  //     { key: 'Expense', module: 'master_expense', icon: 'receipt' },
+  //   ],
+  // },
 
   // Admin-only menus (not in standard backend permissions but for SuperAdmin)
   UserManagement: {
     label: 'User Management',
     icon: 'account-cog',
     modules: ['user_management'],
+    screenName: 'UserManagementScreen',
   },
   MenuAccessControl: {
     label: 'Menu Access Control',
     icon: 'security',
     modules: ['menu_access_control'],
+    screenName: 'UserAccessManagementScreen',
   },
   ActivityLogs: {
     label: 'Activity Logs',
     icon: 'history',
     modules: ['activity_logs'],
+    screenName: 'ActivityLogsScreen',
   },
 };
 

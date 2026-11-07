@@ -84,7 +84,9 @@ const Sidebar = ({ navigation, role }) => {
     if (hasSubItems) {
       setExpandedMenu(expandedMenu === menu.name ? null : menu.name);
     } else {
-      navigation.navigate(menu.name);
+      // Use screenName if provided, otherwise use menu.name
+      const screenName = menu.screenName || menu.name;
+      navigation.navigate(screenName);
 
       setExpandedMenu(null);
     }
@@ -108,7 +110,8 @@ const Sidebar = ({ navigation, role }) => {
   // ─────────────────────────────────────
 
   const isMenuActive = menu => {
-    return currentRoute === menu.name;
+    const screenName = menu.screenName || menu.name;
+    return currentRoute === menu.name || currentRoute === screenName;
   };
 
   // ─────────────────────────────────────

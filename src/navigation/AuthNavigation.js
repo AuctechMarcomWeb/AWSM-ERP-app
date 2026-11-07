@@ -7,15 +7,15 @@ import Sidebar from '../components/Sidebar/Sidebar';
 import { MENU_CONFIG } from '../config/menuConfig';
 
 // Import role-specific Dashboard screens
-import SuperAdminDashboard from '../Screens/SuperAdmin/Dashboardscreen/Dashboardscreen';
-import AdminDashboard from '../Screens/Admin/Dashboardscreen/Dashboardscreen';
-import ExecutiveMemberDashboard from '../Screens/ExecutiveMember/Dashboardscreen/Dashboardscreen';
-import OfficeBearerDashboard from '../Screens/OfficeBearer/Dashboardscreen/Dashboardscreen';
-import OfficeBearersPluralDashboard from '../Screens/Office Bearers/Dashboardscreen/Dashboardscreen';
-import OfficeStaffDashboard from '../Screens/OfficeStaff/Dashboardscreen/Dashboardscreen';
-import LocalSecretaryDashboard from '../Screens/LocalSecretary/Dashboardscreen/Dashboardscreen';
-import MembershipDashboard from '../Screens/Membership/Dashboardscreen/Dashboardscreen';
-import WazifaUserDashboard from '../Screens/WazifaUser/Dashboardscreen/Dashboardscreen';
+import SuperAdminDashboard from '../Screens/Dashboard/SuperAdmin/Dashboardscreen/Dashboardscreen';
+import AdminDashboard from '../Screens/Dashboard/Admin/Dashboardscreen/Dashboardscreen';
+import ExecutiveMemberDashboard from '../Screens/Dashboard/ExecutiveMember/Dashboardscreen/Dashboardscreen';
+import OfficeBearerDashboard from '../Screens/Dashboard/OfficeBearer/Dashboardscreen/Dashboardscreen';
+import OfficeBearersPluralDashboard from '../Screens/Dashboard/Office Bearers/Dashboardscreen/Dashboardscreen';
+import OfficeStaffDashboard from '../Screens/Dashboard/OfficeStaff/Dashboardscreen/Dashboardscreen';
+import LocalSecretaryDashboard from '../Screens/Dashboard/LocalSecretary/Dashboardscreen/Dashboardscreen';
+import MembershipDashboard from '../Screens/Dashboard/Membership/Dashboardscreen/Dashboardscreen';
+import WazifaUserDashboard from '../Screens/Dashboard/WazifaUser/Dashboardscreen/Dashboardscreen';
 import ProfileScreen from '../Screens/Common/Profile/Profile';
 import SettingsScreen from '../Screens/Common/SettingScreen/SettingScreen';
 import MasterRegisterScreen from '../Screens/Common/MasterRegister/MasterRegister';
@@ -32,20 +32,38 @@ import LedgerScreen from '../Screens/Common/Collection/Ledgerscreen/Ledgerscreen
 import ReferralLinkScreen from '../Screens/Common/Collection/Referrallinkscreen/Referrallinkscreen';
 import PaymentListScreen from '../Screens/Common/Collection/Paymentlistscreen/Paymentlistscreen';
 import FardeHisaabScreen from '../Screens/Common/Collection/Fardehisaabscreen/Fardehisaabscreen';
-import Addfardehisaabscreen from '../Screens/Common/Collection/Fardehisaabscreen/Addfardehisaabscreen.jsx';
+import Addfardehisaabscreen from '../Screens/Common/Collection/Fardehisaabscreen/Addfardehisaabscreen';
 
 import IncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fardehisaabscreen/IncomeExpenditureSummaryScreen/IncomeExpenditureSummaryScreen';
 import AddIncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fardehisaabscreen/IncomeExpenditureSummaryScreen/AddIncomeExpenditureSummaryScreen';
 import PostsScreen from '../Screens/Common/PostsScreen/MainScreen/MainScreen';
-import WazifaApplicationsScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationsScreen/WazifaApplicationsScreen.jsx';
-import WazifaApplicationSubmittedScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationSubmittedScreen/WazifaApplicationSubmittedScreen.jsx';
-import AddWazifaApplicationScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/AddWazifaApplicationScreen/AddWazifaApplicationScreen.jsx';
-import VerifyWazifaListScreen from '../Screens/Common/Wafizedar/VerifyWazifaListScreen/VerifyWazifaListScreen.jsx';
+import WazifaApplicationsScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationsScreen/WazifaApplicationsScreen';
+import WazifaApplicationSubmittedScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationSubmittedScreen/WazifaApplicationSubmittedScreen';
+import AddWazifaApplicationScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/AddWazifaApplicationScreen/AddWazifaApplicationScreen';
+import VerifyWazifaListScreen from '../Screens/Common/Wafizedar/VerifyWazifaListScreen/VerifyWazifaListScreen';
 
-import RecentTransactionsScreen from '../Screens/Common/Wafizedar/RecentTransactionsScreen/RecentTransactionsScreen.jsx';
-import WazifaDueReportScreen from '../Screens/Common/Wafizedar/RecentTransactionsScreen/RecentTransactionsScreen.jsx';
-import LedgerOfWazifadarScreen from '../Screens/Common/Wafizedar/LedgerOfWazifadarScreen/LedgerOfWazifadarScreen.jsx';
-import EditProfileScreen from '../Screens/Common/EditProfileScreen/EditProfileScreen.jsx';
+import RecentTransactionsScreen from '../Screens/Common/Wafizedar/RecentTransactionsScreen/RecentTransactionsScreen';
+import WazifaDueReportScreen from '../Screens/Common/Wafizedar/WazifaDueReportScreen/WazifaDueReportScreen';
+import LedgerOfWazifadarScreen from '../Screens/Common/Wafizedar/LedgerOfWazifadarScreen/LedgerOfWazifadarScreen';
+import EditProfileScreen from '../Screens/Common/EditProfileScreen/EditProfileScreen';
+import MembershipScreen from '../Screens/Common/MembersList/MembershipScreen/MembershipScreen';
+import AddMembershipApplicationScreen from '../Screens/Common/MembersList/MembershipScreen/AddMembershipApplicationScreen';
+import UserManagementScreen from '../Screens/Common/UserManagementScreen/UserManagementScreen';
+import AddUserScreen from '../Screens/Common/UserManagementScreen/AddUserScreen';
+
+import MembershipListScreen from '../Screens/Common/MembersList/MembersListScreen/MemberListScreen';
+
+import OfficeBearerMasterScreen from '../Screens/Common/OrganizationStructure/OfficeBearerMasterScreen/OfficeBearerMasterScreen';
+
+import AddOfficeBearerScreen from '../Screens/Common/OrganizationStructure/OfficeBearerMasterScreen/AddOfficeBearerScreen';
+
+import ExecutiveMembersScreen from '../Screens/Common/OrganizationStructure/ExecutiveMembersScreen/ExecutiveMembersScreen';
+import LocalSecretariesScreen from '../Screens/Common/OrganizationStructure/LocalSecretariesScreen/LocalSecretariesScreen';
+
+import AddLocalSecretaryScreen from '../Screens/Common/OrganizationStructure/LocalSecretariesScreen/AddLocalSecretaryScreen';
+
+import UserAccessManagementScreen from '../Screens/Common/UserAccessManagementScreen/UserAccessManagementScreen';
+import ActivityLogsScreen from '../Screens/Common/ActivityLogsScreen/ActivityLogsScreen';
 
 const Drawer = createDrawerNavigator();
 
@@ -372,6 +390,104 @@ const AuthNavigation = () => {
           drawerItemStyle: { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="MembershipScreen"
+        component={MembershipScreen}
+        options={{
+          title: 'Membership Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+
+      <Drawer.Screen
+        name="AddMembershipApplicationScreen"
+        component={AddMembershipApplicationScreen}
+        options={{
+          title: 'AddMembershipApplication Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="MembershipListScreen"
+        component={MembershipListScreen}
+        options={{
+          title: 'MembershipList Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+
+      <Drawer.Screen
+        name="OfficeBearerMasterScreen"
+        component={OfficeBearerMasterScreen}
+        options={{
+          title: 'OfficeBearerMaster Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddOfficeBearerScreen"
+        component={AddOfficeBearerScreen}
+        options={{
+          title: 'AddOfficeBearer Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="ExecutiveMembersScreen"
+        component={ExecutiveMembersScreen}
+        options={{
+          title: 'ExecutiveMembers Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="LocalSecretariesScreen"
+        component={LocalSecretariesScreen}
+        options={{
+          title: 'LocalSecretaries Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddLocalSecretaryScreen"
+        component={AddLocalSecretaryScreen}
+        options={{
+          title: 'AddLocalSecretary Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="UserManagementScreen"
+        component={UserManagementScreen}
+        options={{
+          title: 'UserManagement Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddUserScreen"
+        component={AddUserScreen}
+        options={{
+          title: 'AddUser Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="UserAccessManagementScreen"
+        component={UserAccessManagementScreen}
+        options={{
+          title: 'UserAccessManagement Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="ActivityLogsScreen"
+        component={ActivityLogsScreen}
+        options={{
+          title: 'ActivityLogs Screen',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
 
       {/* All Menu Screens from MENU_CONFIG */}
       {Object.entries(MENU_CONFIG)
@@ -395,6 +511,9 @@ const AuthNavigation = () => {
               'PaymentList',
               'FardeHisaab',
               'IncomeExpenditure',
+              'UserManagementScreen',
+              'MenuAccessControl',
+              'ActivityLogs',
             ].includes(menuKey),
         )
         .map(([menuKey, menuConfig]) => {

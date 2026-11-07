@@ -175,7 +175,7 @@ const LedgerOfWazifadarScreen = ({ navigation }) => {
     return (
       <View style={styles.card}>
         <View style={styles.cardTopRow}>
-          <Text style={styles.srNo}>#{index + 1}</Text>
+          <Text style={styles.srNo}>{index + 1}</Text>
           <Text style={styles.dateText}>{item.date}</Text>
           <View style={styles.modeBadge}>
             <Text style={styles.modeBadgeText}>{item.paymentMode}</Text>
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   },
 
   screenDesc: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: colors.textSecondary,
     marginTop: 10,
@@ -435,12 +435,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
   dateText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },
@@ -483,12 +483,12 @@ const styles = StyleSheet.create({
     color: colors.TitleColor,
   },
   valTextPrimary: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: colors.primary,
   },
   valText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: colors.TitleColor,
   },
