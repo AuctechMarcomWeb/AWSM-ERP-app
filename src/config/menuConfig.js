@@ -207,48 +207,77 @@ export const MENU_CONFIG = {
   },
 
   // Masters (9 sub-items)
-  // Masters: {
-  //   label: 'Masters',
-  //   icon: 'cog',
-  //   modules: [
-  //     'master_designation',
-  //     'master_tenure_year',
-  //     'master_collected_by',
-  //     'master_mode_of_payment',
-  //     'master_bank',
-  //     'master_fund_type',
-  //     'master_scholarship_rate',
-  //     'master_scholarship_date',
-  //     'master_expense',
-  //   ],
-  //   subs: [
-  //     {
-  //       key: 'Designation',
-  //       module: 'master_designation',
-  //       icon: 'badge-account',
-  //     },
-  //     { key: 'Tenure Year', module: 'master_tenure_year', icon: 'calendar' },
-  //     { key: 'Collected By', module: 'master_collected_by', icon: 'account' },
-  //     {
-  //       key: 'Mode of Payment',
-  //       module: 'master_mode_of_payment',
-  //       icon: 'credit-card',
-  //     },
-  //     { key: 'Bank', module: 'master_bank', icon: 'bank' },
-  //     { key: 'Fund Type', module: 'master_fund_type', icon: 'wallet' },
-  //     {
-  //       key: 'Scholarship Rate',
-  //       module: 'master_scholarship_rate',
-  //       icon: 'percent',
-  //     },
-  //     {
-  //       key: 'Scholarship Date',
-  //       module: 'master_scholarship_date',
-  //       icon: 'calendar-today',
-  //     },
-  //     { key: 'Expense', module: 'master_expense', icon: 'receipt' },
-  //   ],
-  // },
+  Masters: {
+    label: 'Masters',
+    icon: 'cog',
+    modules: [
+      'master_designation',
+      'master_tenure_year',
+      'master_collected_by',
+      'master_mode_of_payment',
+      'master_bank',
+      'master_fund_type',
+      'master_scholarship_rate',
+      'master_scholarship_date',
+      'master_expense',
+    ],
+    subs: [
+      {
+        key: 'Designation',
+        module: 'master_designation',
+        icon: 'badge-account',
+        screenName: 'DesignationScreen',
+      },
+      {
+        key: 'Tenure Year',
+        module: 'master_tenure_year',
+        icon: 'calendar',
+        screenName: 'TenureYearScreen',
+      },
+      {
+        key: 'Collected By',
+        module: 'master_collected_by',
+        icon: 'account',
+        screenName: 'CollectedByScreen',
+      },
+      {
+        key: 'Mode of Payment',
+        module: 'master_mode_of_payment',
+        icon: 'credit-card',
+        screenName: 'PaymentModeScreen',
+      },
+      {
+        key: 'Bank',
+        module: 'master_bank',
+        icon: 'bank',
+        screenName: 'BankScreen',
+      },
+      {
+        key: 'Fund Type',
+        module: 'master_fund_type',
+        icon: 'wallet',
+        screenName: 'FundTypeScreen',
+      },
+      {
+        key: 'Scholarship Rate',
+        module: 'master_scholarship_rate',
+        icon: 'percent',
+        screenName: 'RateOfScholarshipScreen',
+      },
+      {
+        key: 'Scholarship Date',
+        module: 'master_scholarship_date',
+        icon: 'calendar-today',
+        screenName: 'ScholarshipDateScreen',
+      },
+      {
+        key: 'Expense',
+        module: 'master_expense',
+        icon: 'receipt',
+        screenName: 'ExpenseScreen',
+      },
+    ],
+  },
 
   // Admin-only menus (not in standard backend permissions but for SuperAdmin)
   UserManagement: {

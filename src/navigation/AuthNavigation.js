@@ -65,6 +65,25 @@ import AddLocalSecretaryScreen from '../Screens/Common/OrganizationStructure/Loc
 import UserAccessManagementScreen from '../Screens/Common/UserAccessManagementScreen/UserAccessManagementScreen';
 import ActivityLogsScreen from '../Screens/Common/ActivityLogsScreen/ActivityLogsScreen';
 
+// Import Master Screens
+import DesignationScreen from '../Screens/Master/Designation/Designation';
+import AddDesignationScreen from '../Screens/Master/Designation/AddDesignationScreen';
+import TenureYearScreen from '../Screens/Master/TenureYear/TenureYear';
+import AddTenureYearScreen from '../Screens/Master/TenureYear/AddTenureYearScreen';
+import CollectedByScreen from '../Screens/Master/CollectedByMaster/CollectedByMaster';
+import PaymentModeScreen from '../Screens/Master/PaymentMode/PaymentMode';
+import AddPaymentModeScreen from '../Screens/Master/PaymentMode/AddFundTypeScreen';
+import BankScreen from '../Screens/Master/Bank/Bank';
+import AddBankScreen from '../Screens/Master/Bank/AddBankScreen';
+import FundTypeScreen from '../Screens/Master/FundType/FundType';
+import AddFundTypeScreen from '../Screens/Master/FundType/AddModeOfPaymentScreen';
+import RateOfScholarshipScreen from '../Screens/Master/RateScholarship/RateOfScholarshipMasterScreen';
+import AddRateOfScholarshipScreen from '../Screens/Master/RateScholarship/AddRateOfScholarshipScreen';
+import ScholarshipDateScreen from '../Screens/Master/ScholarshipDate/ScholarshipDateMasterScreen';
+import AddScholarshipDateScreen from '../Screens/Master/ScholarshipDate/AddScholarshipDateScreen';
+import ExpenseScreen from '../Screens/Master/Expense/ExpenseMasterScreen';
+import AddExpenseScreen from '../Screens/Master/Expense/AddExpenseScreen';
+
 const Drawer = createDrawerNavigator();
 
 // Map dashboard screens by role
@@ -514,6 +533,7 @@ const AuthNavigation = () => {
               'UserManagementScreen',
               'MenuAccessControl',
               'ActivityLogs',
+              'Masters',
             ].includes(menuKey),
         )
         .map(([menuKey, menuConfig]) => {
@@ -554,6 +574,144 @@ const AuthNavigation = () => {
             />
           );
         })}
+
+      {/* Masters Screens */}
+      <Drawer.Screen
+        name="DesignationScreen"
+        component={DesignationScreen}
+        options={{
+          title: 'Designation',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddDesignationScreen"
+        component={AddDesignationScreen}
+        options={{
+          title: 'Add Designation',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="TenureYearScreen"
+        component={TenureYearScreen}
+        options={{
+          title: 'Tenure Year',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddTenureYearScreen"
+        component={AddTenureYearScreen}
+        options={{
+          title: 'Add Tenure Year',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="CollectedByScreen"
+        component={CollectedByScreen}
+        options={{
+          title: 'Collected By',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="PaymentModeScreen"
+        component={PaymentModeScreen}
+        options={{
+          title: 'Payment Mode',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddPaymentModeScreen"
+        component={AddPaymentModeScreen}
+        options={{
+          title: 'Add Payment Mode',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="BankScreen"
+        component={BankScreen}
+        options={{
+          title: 'Bank',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddBankScreen"
+        component={AddBankScreen}
+        options={{
+          title: 'Add Bank',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="FundTypeScreen"
+        component={FundTypeScreen}
+        options={{
+          title: 'Fund Type',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddFundTypeScreen"
+        component={AddFundTypeScreen}
+        options={{
+          title: 'Add Fund Type',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="RateOfScholarshipScreen"
+        component={RateOfScholarshipScreen}
+        options={{
+          title: 'Rate of Scholarship',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddRateOfScholarshipScreen"
+        component={AddRateOfScholarshipScreen}
+        options={{
+          title: 'Add Rate of Scholarship',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="ScholarshipDateScreen"
+        component={ScholarshipDateScreen}
+        options={{
+          title: 'Scholarship Date',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddScholarshipDateScreen"
+        component={AddScholarshipDateScreen}
+        options={{
+          title: 'Add Scholarship Date',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="ExpenseScreen"
+        component={ExpenseScreen}
+        options={{
+          title: 'Expense',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddExpenseScreen"
+        component={AddExpenseScreen}
+        options={{
+          title: 'Add Expense',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
     </Drawer.Navigator>
   );
 };
