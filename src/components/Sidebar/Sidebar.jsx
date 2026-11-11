@@ -18,7 +18,7 @@ import {
   heightPercentageToDP as hp,
 } from 'react-native-responsive-screen';
 
-import { MENU_CONFIG, hasMenuAccess } from '../../config/menuConfig';
+import { getVisibleMenus } from '../../utils/permissionHelper';
 
 import Colors from '../../themes/colors';
 
@@ -52,27 +52,10 @@ const Sidebar = ({ navigation, role }) => {
   const userName = profile?.FullName || loginData?.Name || 'Associate';
 
   // ─────────────────────────────────────
-  // Permission Check
+  // Visible Menus (from getVisibleMenus)
   // ─────────────────────────────────────
 
-  const canAccessMenu = menuKey => {
-    if (currentRole === 'SuperAdmin') {
-      return true;
-    }
-
-    return hasMenuAccess(menuKey, permissions);
-  };
-
-  // ─────────────────────────────────────
-  // Visible Menus
-  // ─────────────────────────────────────
-
-  const menus = Object.entries(MENU_CONFIG)
-    .filter(([menuKey]) => canAccessMenu(menuKey))
-    .map(([menuKey, menuConfig]) => ({
-      name: menuKey,
-      ...menuConfig,
-    }));
+  const menus = getVisibleMenus(permissions, currentRole);
 
   // ─────────────────────────────────────
   // Menu Navigation
@@ -82,10 +65,10 @@ const Sidebar = ({ navigation, role }) => {
     const hasSubItems = menu.subs && menu.subs.length > 0;
 
     if (hasSubItems) {
-      setExpandedMenu(expandedMenu === menu.name ? null : menu.name);
+      setExpandedMenu(expandedMenu === menu.key ? null : menu.key);
     } else {
-      // Use screenName if provided, otherwise use menu.name
-      const screenName = menu.screenName || menu.name;
+      // Use screenName if provided, otherwise use menu.key
+      const screenName = menu.screenName || menu.key;
       navigation.navigate(screenName);
 
       setExpandedMenu(null);
@@ -110,8 +93,8 @@ const Sidebar = ({ navigation, role }) => {
   // ─────────────────────────────────────
 
   const isMenuActive = menu => {
-    const screenName = menu.screenName || menu.name;
-    return currentRoute === menu.name || currentRoute === screenName;
+    const screenName = menu.screenName || menu.key;
+    return currentRoute === menu.key || currentRoute === screenName;
   };
 
   // ─────────────────────────────────────
@@ -147,14 +130,24 @@ const Sidebar = ({ navigation, role }) => {
           </View>
 
           {menus.map((menu, index) => {
-            const isExpanded = expandedMenu === menu.name;
+            const isExpanded = expandedMenu === menu.key;
 
             const hasSubItems = menu.subs && menu.subs.length > 0;
 
             const isActive = isMenuActive(menu);
 
+            // Get filtered submenus based on permissions
+            const visibleSubs = hasSubItems 
+              ? menu.subs.filter(sub => {
+                  const subPermission = permissions?.find(p => p.module === sub.module);
+                  return subPermission?.canView === true;
+                })
+              : [];
+
+            const hasVisibleSubs = visibleSubs.length > 0;
+
             return (
-              <View key={menu.name} style={styles.menuWrapper}>
+              <View key={menu.key} style={styles.menuWrapper}>
                 {/* Main Menu Item */}
 
                 <TouchableOpacity
@@ -187,12 +180,12 @@ const Sidebar = ({ navigation, role }) => {
                     style={[styles.menuText, isActive && styles.activeMenuText]}
                     numberOfLines={1}
                   >
-                    {menu.label || menu.name}
+                    {menu.label || menu.key}
                   </Text>
 
                   {/* Expand Icon */}
 
-                  {hasSubItems && (
+                  {hasVisibleSubs && (
                     <MaterialCommunityIcons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={wp('5.5%')}
@@ -200,21 +193,21 @@ const Sidebar = ({ navigation, role }) => {
                     />
                   )}
 
-                  {!hasSubItems && isActive && (
+                  {!hasVisibleSubs && isActive && (
                     <View style={styles.activeDot} />
                   )}
                 </TouchableOpacity>
 
                 {/* Submenu */}
 
-                {hasSubItems && isExpanded && (
+                {hasVisibleSubs && isExpanded && (
                   <View style={styles.subMenuContainer}>
-                    {menu.subs.map((subItem, subIndex) => (
+                    {visibleSubs.map((subItem, subIndex) => (
                       <TouchableOpacity
                         key={subItem.key}
                         activeOpacity={0.7}
                         style={styles.subMenuItem}
-                        onPress={() => handleSubMenuPress(menu.name, subItem)}
+                        onPress={() => handleSubMenuPress(menu.key, subItem)}
                       >
                         <View style={styles.subMenuIndicator} />
 

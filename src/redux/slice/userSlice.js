@@ -8,6 +8,7 @@ const initialState = {
   isAuthenticated: false,
   permissions: [],
   role: null,
+  profile: null,
 };
 
 const userSlice = createSlice({
@@ -23,6 +24,7 @@ const userSlice = createSlice({
     loginSuccess: (state, action) => {
       state.token = action.payload.token;
       state.user = action.payload.user;
+      state.profile = action.payload.user; // Store profile
       state.role = action.payload.user?.role;
       state.permissions = action.payload.user?.permissions || [];
       state.isAuthenticated = true;
@@ -40,6 +42,7 @@ const userSlice = createSlice({
     // Set user data
     setUser: (state, action) => {
       state.user = action.payload;
+      state.profile = action.payload; // Store full profile
       state.role = action.payload?.role;
       state.permissions = action.payload?.permissions || [];
     },

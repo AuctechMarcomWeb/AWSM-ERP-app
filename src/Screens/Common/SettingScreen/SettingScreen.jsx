@@ -1,4 +1,6 @@
+
 import React from 'react';
+
 import {
   View,
   Text,
@@ -9,6 +11,7 @@ import {
 } from 'react-native';
 
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -27,15 +30,26 @@ import { logout } from '../../../redux/slice/userSlice';
 
 const SettingsScreen = ({ navigation, onLogout }) => {
   const dispatch = useDispatch();
+
   const { loginData, profile } = useSelector(state => state.user);
 
-  const fullName = profile?.FullName || loginData?.Name || 'Member';
-  const email = profile?.Email || loginData?.Email || 'Not Available';
+  const fullName = profile?.name || loginData?.Name || 'Member';
+  const email = profile?.email || loginData?.Email || 'Not Available';
 
+  // Bottom Navigation
   const handleTabPress = key => {
     if (key === 'SettingScreen') return;
     navigation?.navigate(key);
   };
+
+  // Open Under Development Screen
+  const openUnderDevelopment = (title) => {
+    navigation.navigate('UnderDevelopmentScreen', {
+      title: title,
+      description: `${title} feature is currently under development. It will be available soon.`,
+    });
+  };
+
   // Logout Confirmation
   const handleLogout = () => {
     Alert.alert(
@@ -50,18 +64,22 @@ const SettingsScreen = ({ navigation, onLogout }) => {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            // Logout and clean up
             try {
               // Clear AsyncStorage
               await AsyncStorage.removeItem('authToken');
               await AsyncStorage.removeItem('userData');
-              
-              // Dispatch logout action to clear Redux state
+
+              // Clear Redux State
               dispatch(logout());
-              
-            
+
+              // Optional callback
+              onLogout?.();
+
             } catch (error) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
+              Alert.alert(
+                'Error',
+                'Failed to logout. Please try again.',
+              );
             }
           },
         },
@@ -70,7 +88,13 @@ const SettingsScreen = ({ navigation, onLogout }) => {
   };
 
   // Reusable Setting Row
-  const SettingRow = ({ icon, title, subtitle, onPress, danger = false }) => {
+  const SettingRow = ({
+    icon,
+    title,
+    subtitle,
+    onPress,
+    danger = false,
+  }) => {
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -118,7 +142,11 @@ const SettingsScreen = ({ navigation, onLogout }) => {
   return (
     <AppLayout>
       <View style={styles.container}>
-        <BackHeader navigation={navigation} title="Settings" />
+
+        <BackHeader
+          navigation={navigation}
+          title="Settings"
+        />
 
         <ScrollView
           style={styles.scrollView}
@@ -127,12 +155,13 @@ const SettingsScreen = ({ navigation, onLogout }) => {
           bounces={false}
           keyboardShouldPersistTaps="handled"
         >
+
           {/* Profile Card */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.profileCard}
-            onPress={() => navigation?.navigate('ProfileScreen')}
-          >
+   <TouchableOpacity
+  activeOpacity={0.8}
+  style={styles.profileCard}
+  onPress={() => navigation.navigate('ProfileScreen')}
+>
             <View style={styles.profileIcon}>
               <MaterialCommunityIcons
                 name="account-circle"
@@ -150,7 +179,9 @@ const SettingsScreen = ({ navigation, onLogout }) => {
                 {email}
               </Text>
 
-              <Text style={styles.profileStatus}>Member Account</Text>
+              <Text style={styles.profileStatus}>
+                Member Account
+              </Text>
             </View>
 
             <MaterialCommunityIcons
@@ -164,11 +195,12 @@ const SettingsScreen = ({ navigation, onLogout }) => {
           <SectionTitle title="ACCOUNT SETTINGS" />
 
           <View style={styles.sectionCard}>
+
             <SettingRow
               icon="account-edit-outline"
               title="Edit Profile"
               subtitle="Update your personal information"
-              onPress={() => navigation?.navigate('EditProfileScreen')}
+              onPress={() => openUnderDevelopment('Edit Profile')}
             />
 
             <View style={styles.divider} />
@@ -177,19 +209,21 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               icon="lock-outline"
               title="Change Password"
               subtitle="Change your account password"
-              onPress={() => navigation?.navigate('ChangePassword')}
+              onPress={() => openUnderDevelopment('Change Password')}
             />
+
           </View>
 
           {/* Privacy & Security */}
           <SectionTitle title="PRIVACY & SECURITY" />
 
           <View style={styles.sectionCard}>
+
             <SettingRow
               icon="shield-lock-outline"
               title="Privacy Policy"
               subtitle="Read our privacy policy"
-              onPress={() => navigation?.navigate('PrivacyPolicy')}
+              onPress={() => openUnderDevelopment('Privacy Policy')}
             />
 
             <View style={styles.divider} />
@@ -198,19 +232,21 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               icon="file-document-outline"
               title="Terms & Conditions"
               subtitle="Read terms of service"
-              onPress={() => navigation?.navigate('TermsConditions')}
+              onPress={() => openUnderDevelopment('Terms & Conditions')}
             />
+
           </View>
 
           {/* Support */}
           <SectionTitle title="SUPPORT" />
 
           <View style={styles.sectionCard}>
+
             <SettingRow
               icon="help-circle-outline"
               title="Help & Support"
               subtitle="Get assistance and support"
-              onPress={() => navigation?.navigate('HelpSupport')}
+              onPress={() => openUnderDevelopment('Help & Support')}
             />
 
             <View style={styles.divider} />
@@ -219,8 +255,9 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               icon="information-outline"
               title="About App"
               subtitle="Application information"
-              onPress={() => navigation?.navigate('About')}
+              onPress={() => openUnderDevelopment('About App')}
             />
+
           </View>
 
           {/* Logout */}
@@ -237,7 +274,9 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               />
             </View>
 
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={styles.logoutText}>
+              Logout
+            </Text>
 
             <MaterialCommunityIcons
               name="chevron-right"
@@ -248,15 +287,27 @@ const SettingsScreen = ({ navigation, onLogout }) => {
 
           {/* App Version */}
           <View style={styles.footer}>
-            <Text style={styles.footerTitle}>AWSM Member App</Text>
+            <Text style={styles.footerTitle}>
+              AWSM Member App
+            </Text>
 
-            <Text style={styles.version}>Version 1.0.0</Text>
+            <Text style={styles.version}>
+              Version 1.0.0
+            </Text>
 
-            <Text style={styles.copyright}>Made with care for our members</Text>
+            <Text style={styles.copyright}>
+              Made with care for our members
+            </Text>
           </View>
+
         </ScrollView>
       </View>
-      <BottomNav active="SettingScreen" onPress={handleTabPress} />
+
+      <BottomNav
+        active="SettingScreen"
+        onPress={handleTabPress}
+      />
+
     </AppLayout>
   );
 };
@@ -265,6 +316,7 @@ export default SettingsScreen;
 
 // Styles
 const styles = StyleSheet.create({
+
   // Main Container
   container: {
     flex: 1,
@@ -475,4 +527,5 @@ const styles = StyleSheet.create({
     color: '#999999',
     marginTop: hp('0.5%'),
   },
+
 });

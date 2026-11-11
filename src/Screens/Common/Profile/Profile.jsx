@@ -11,9 +11,12 @@ import {
   Alert,
 } from 'react-native';
 
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getProfile } from '../../../api/auth';
+import { setUser } from '../../../redux/slice/userSlice';
 
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -30,14 +33,45 @@ import BottomNav from '../../../components/BottomNav/BottomNav';
 // ─────────────────────────────────────────
 
 const ProfileScreen = ({ navigation }) => {
-  const { loginData, profile, associateDetails } = useSelector(
+  const dispatch = useDispatch();
+  const { loginData, profile, associateDetails, permissions, role } = useSelector(
     state => state.user,
   );
 
   const [imageError, setImageError] = useState(false);
 
+  console.log('📋 Profile Data:', {
+    profile,
+    loginData,
+    permissions,
+    role,
+  });
 
-    const handleTabPress = key => {
+  // ─────────────────────────────────────
+  // Fetch Profile on Screen Focus
+  // ─────────────────────────────────────
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchProfile = async () => {
+        try {
+          const result = await getProfile();
+          if (result.success && result.user) {
+            dispatch(setUser(result.user));
+          }
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+        }
+      };
+
+      fetchProfile();
+
+      return () => {
+        // Cleanup if needed
+      };
+    }, [dispatch]),
+  );
+
+  const handleTabPress = key => {
     if (key === 'Profile') return;
     navigation?.navigate(key);
   };
@@ -45,43 +79,15 @@ const ProfileScreen = ({ navigation }) => {
   // User Information
   // ─────────────────────────────────────
 
-  const fullName =
-    profile?.FullName ||
-    associateDetails?.FullName ||
-    loginData?.Name ||
-    'Member';
+  const fullName = profile?.name || loginData?.Name || 'Member';
 
-  const email =
-    profile?.Email ||
-    associateDetails?.Email ||
-    loginData?.Email ||
-    'Not Available';
+  const email = profile?.email || loginData?.Email || 'Not Available';
 
-  const phone =
-    profile?.MobileNo ||
-    profile?.Phone ||
-    associateDetails?.MobileNo ||
-    loginData?.MobileNo ||
-    loginData?.Phone ||
-    'Not Available';
+  const phone = profile?.phone || loginData?.Phone || 'Not Available';
 
-  const designation =
-    associateDetails?.Designation ||
-    profile?.Designation ||
-    loginData?.Designation ||
-    ' Member';
+  const userRole = profile?.role || role || loginData?.role || 'Not Available';
 
-  const memberId =
-    associateDetails?.MemberId ||
-    profile?.MemberId ||
-    loginData?.MemberId ||
-    'Not Available';
-
-  const address =
-    profile?.Address ||
-    associateDetails?.Address ||
-    loginData?.Address ||
-    'Not Available';
+  const gender = profile?.gender || loginData?.gender || 'Not Available';
 
   // ─────────────────────────────────────
   // Profile Photo
@@ -165,7 +171,7 @@ const ProfileScreen = ({ navigation }) => {
   return (
     <AppLayout>
       <View style={styles.container}>
-        <BackHeader navigation={navigation} title="Settings" />
+        <BackHeader navigation={navigation} title="Profile" />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -173,7 +179,7 @@ const ProfileScreen = ({ navigation }) => {
         >
           {/* Profile Card */}
 
-          <View style={styles.profileCard}>
+          {/* <View style={styles.profileCard}>
             <View style={styles.avatarWrapper}>
               {photo && !imageError ? (
                 <Image
@@ -195,7 +201,7 @@ const ProfileScreen = ({ navigation }) => {
 
             <Text style={styles.profileName}>{fullName}</Text>
 
-            <Text style={styles.designation}>{designation}</Text>
+            <Text style={styles.designation}>{userRole}</Text>
 
             <View style={styles.memberBadge}>
               <MaterialCommunityIcons
@@ -220,7 +226,7 @@ const ProfileScreen = ({ navigation }) => {
 
               <Text style={styles.editButtonText}>Edit Profile</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {/* Personal Information */}
 
@@ -253,42 +259,34 @@ const ProfileScreen = ({ navigation }) => {
 
             <View style={styles.rowDivider} />
 
-            <InfoRow
-              icon="map-marker-outline"
-              label="Address"
-              value={address}
-            />
+            <InfoRow icon="human" label="Gender" value={gender} />
           </View>
 
-          {/* Membership Information */}
+          {/* Role Information */}
 
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleWrapper}>
                 <MaterialCommunityIcons
-                  name="card-account-details-outline"
+                  name="badge-account-outline"
                   size={21}
                   color={Colors.primary}
                 />
 
-                <Text style={styles.sectionTitle}>Membership Details</Text>
+                <Text style={styles.sectionTitle}>Role Information</Text>
               </View>
             </View>
 
-            <InfoRow icon="identifier" label="Member ID" value={memberId} />
-
-            <View style={styles.rowDivider} />
-
             <InfoRow
               icon="badge-account-outline"
-              label="Designation"
-              value={designation}
+              label="Role"
+              value={userRole}
             />
           </View>
 
           {/* Account Settings */}
 
-          <View style={styles.sectionCard}>
+          {/* <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleWrapper}>
                 <MaterialCommunityIcons
@@ -300,10 +298,6 @@ const ProfileScreen = ({ navigation }) => {
                 <Text style={styles.sectionTitle}>Account Settings</Text>
               </View>
             </View>
-
-          
-
-            <View style={styles.rowDivider} />
 
             <MenuRow
               icon="lock-outline"
@@ -318,13 +312,7 @@ const ProfileScreen = ({ navigation }) => {
               title="Settings"
               onPress={() => navigation?.navigate('SettingScreen')}
             />
-
-            <View style={styles.rowDivider} />
-
-       
-          </View>
-
-          {/* Logout */}
+          </View> */}
 
         </ScrollView>
       </View>
@@ -447,7 +435,7 @@ const styles = StyleSheet.create({
   },
 
   profileName: {
-    fontSize: FontSize.xl,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: Colors.TitleColor,
 
@@ -478,7 +466,7 @@ const styles = StyleSheet.create({
   },
 
   memberBadgeText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: Colors.primary,
   },
@@ -563,7 +551,7 @@ const styles = StyleSheet.create({
   },
 
   infoLabel: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: Colors.textMuted,
   },
@@ -625,7 +613,7 @@ const styles = StyleSheet.create({
   versionText: {
     textAlign: 'center',
 
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
 
     color: Colors.textMuted,

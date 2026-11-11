@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   View,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 
 import LinearGradient from 'react-native-linear-gradient';
@@ -18,79 +19,90 @@ import { FontFamily, FontSize } from '../../../../themes/typography';
 import DashboardHeader from '../../../../components/DashboardHeader/DashboardHeader';
 import BottomNav from '../../../../components/BottomNav/BottomNav';
 
+// Import dashboard API functions
+import {
+  getAdminDashboard,
+  getDashboardMembers,
+  getDashboardScholarships,
+  getDashboardFundSummary,
+  getDashboardCollection,
+  getDashboardDisbursedStatus,
+  getSuperAdminDashboard,
+} from '../../../../api/dashboard';
+
 // ---------------------------------------------------------------
-// Dummy data — replace with your API response
+// Default/Fallback data
 // ---------------------------------------------------------------
-const MEMBERS = [
+const DEFAULT_MEMBERS = [
   {
     label: 'Total Members',
-    value: 9317,
+    value: 0,
     icon: 'account-group-outline',
     tone: 'green',
   },
   {
     label: 'Ordinary Member',
-    value: 1805,
+    value: 0,
     icon: 'account-multiple-outline',
     tone: 'blue',
   },
-  { label: 'Life Member', value: 3998, icon: 'account-outline', tone: 'green' },
+  { label: 'Life Member', value: 0, icon: 'account-outline', tone: 'green' },
   {
     label: 'Dawami Member',
-    value: 3351,
+    value: 0,
     icon: 'account-multiple-outline',
     tone: 'orange',
   },
-  { label: 'Sarparast Member', value: 7, icon: 'star-outline', tone: 'purple' },
-  { label: 'Mohsine Member', value: 155, icon: 'account-outline', tone: 'red' },
+  { label: 'Sarparast Member', value: 0, icon: 'star-outline', tone: 'purple' },
+  { label: 'Mohsine Member', value: 0, icon: 'account-outline', tone: 'red' },
 ];
 
-const COLLECTION = {
-  total: 40431,
+const DEFAULT_COLLECTION = {
+  total: 0,
   items: [
     {
       label: 'Corpus Fund',
-      value: 15500,
+      value: 0,
       icon: 'gift-outline',
       tone: 'purple',
     },
-    { label: 'Reserve Fund', value: 5900, icon: 'bank-outline', tone: 'blue' },
+    { label: 'Reserve Fund', value: 0, icon: 'bank-outline', tone: 'blue' },
     {
       label: 'Membership\n& Donation',
-      value: 6550,
+      value: 0,
       icon: 'account-multiple-outline',
       tone: 'orange',
     },
     {
       label: 'Other',
-      value: 12481,
+      value: 0,
       icon: 'dots-horizontal-circle-outline',
       tone: 'gray',
     },
   ],
 };
 
-const WAZIFADAR = [
+const DEFAULT_WAZIFADAR = [
   {
     label: 'Total\nApplications',
-    value: 1527,
+    value: 0,
     icon: 'file-document-edit-outline',
     tone: 'blue',
   },
   {
-    label: 'Shortlisted',
+    label: 'Pending',
     value: 0,
-    icon: 'checkbox-marked-outline',
+    icon: 'clock-outline',
     tone: 'purple',
   },
   { label: 'Disbursed', value: 0, icon: 'wallet-outline', tone: 'green' },
-  { label: 'Pending', value: 0, icon: 'clock-outline', tone: 'cyan' },
-  { label: 'Returned', value: 0, icon: 'restore', tone: 'orange' },
+  { label: 'Approved', value: 0, icon: 'checkbox-marked-outline', tone: 'cyan' },
+  { label: 'Rejected', value: 0, icon: 'close-circle-outline', tone: 'orange' },
+  { label: 'Returned', value: 0, icon: 'restore', tone: 'red' },
   { label: 'Resend', value: 0, icon: 'send-outline', tone: 'sky' },
-  { label: 'Rejected', value: 0, icon: 'close-circle-outline', tone: 'gray' },
 ];
 
-const SCHOLARSHIP = [
+const DEFAULT_SCHOLARSHIP = [
   { label: 'Total Approved', value: 0, tone: 'purple' },
   { label: 'Total Disbursed', value: 0, tone: 'green' },
   { label: 'Total Pending', value: 0, tone: 'orange' },
@@ -317,6 +329,178 @@ const ModeBadge = ({ mode }) => {
 // ---------------------------------------------------------------
 const DashboardScreen = ({ navigation }) => {
   const [year, setYear] = useState(2026);
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [members, setMembers] = useState(DEFAULT_MEMBERS);
+  const [collection, setCollection] = useState(DEFAULT_COLLECTION);
+  const [wazifadar, setWazifadar] = useState(DEFAULT_WAZIFADAR);
+  const [scholarship, setScholarship] = useState(DEFAULT_SCHOLARSHIP);
+
+  // Fetch dashboard data on component mount and when year changes
+  useEffect(() => {
+    fetchDashboardData();
+  }, [year]);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Get the main dashboard data
+      const response = await getAdminDashboard(year);
+
+      if (response.success && response.data) {
+        setDashboardData(response.data);
+
+        // Parse members data
+        if (response.data.members) {
+          const memberTypeStats = response.data.members.memberTypeStats || [];
+          const totalMembers = response.data.members.total;
+
+          const parsedMembers = [
+            {
+              label: 'Total Members',
+              value: totalMembers?.totalMembers || 0,
+              icon: 'account-group-outline',
+              tone: 'green',
+            },
+            {
+              label: 'Ordinary Member',
+              value: memberTypeStats.find(m => m.memberType === 'Ordinary Member')
+                ?.totalMembers || 0,
+              icon: 'account-multiple-outline',
+              tone: 'blue',
+            },
+            {
+              label: 'Life Member',
+              value: memberTypeStats.find(m => m.memberType === 'Life Member')
+                ?.totalMembers || 0,
+              icon: 'account-outline',
+              tone: 'green',
+            },
+            {
+              label: 'Dawami Member',
+              value: memberTypeStats.find(m => m.memberType === 'Dawami Member')
+                ?.totalMembers || 0,
+              icon: 'account-multiple-outline',
+              tone: 'orange',
+            },
+            {
+              label: 'Sarparast Member',
+              value: memberTypeStats.find(m => m.memberType === 'Sarparast Member')
+                ?.totalMembers || 0,
+              icon: 'star-outline',
+              tone: 'purple',
+            },
+            {
+              label: 'Mohsine Member',
+              value: memberTypeStats.find(m => m.memberType === 'Mohsine member')
+                ?.totalMembers || 0,
+              icon: 'account-outline',
+              tone: 'red',
+            },
+          ];
+
+          setMembers(parsedMembers);
+        }
+
+        // Parse collection/fund data
+        if (response.data.fundSummary) {
+          const fund = response.data.fundSummary;
+          setCollection({
+            total: fund.totalCollection1 || 0,
+            items: [
+              {
+                label: 'Corpus Fund',
+                value: fund.corpusFund || 0,
+                icon: 'gift-outline',
+                tone: 'purple',
+              },
+              {
+                label: 'Reserve Fund',
+                value: fund.reserveFund || 0,
+                icon: 'bank-outline',
+                tone: 'blue',
+              },
+              {
+                label: 'Membership\n& Donation',
+                value: fund.membershipDonation || 0,
+                icon: 'account-multiple-outline',
+                tone: 'orange',
+              },
+              {
+                label: 'Other',
+                value: fund.others || 0,
+                icon: 'dots-horizontal-circle-outline',
+                tone: 'gray',
+              },
+            ],
+          });
+        }
+
+        // Parse wazifadar/scholarship data
+        if (response.data.scholarships) {
+          const schol = response.data.scholarships;
+          const disbursed = response.data.disbursedStatus;
+
+          setWazifadar([
+            {
+              label: 'Total\nApplications',
+              value: schol.totalScholarships || 0,
+              icon: 'file-document-edit-outline',
+              tone: 'blue',
+            },
+            {
+              label: 'Pending',
+              value: schol.pendingScholarships || 0,
+              icon: 'clock-outline',
+              tone: 'purple',
+            },
+            {
+              label: 'Disbursed',
+              value: disbursed?.disbursed || 0,
+              icon: 'wallet-outline',
+              tone: 'green',
+            },
+            {
+              label: 'Approved',
+              value: schol.approvedScholarships || 0,
+              icon: 'checkbox-marked-outline',
+              tone: 'cyan',
+            },
+            {
+              label: 'Rejected',
+              value: schol.rejectedScholarships || 0,
+              icon: 'close-circle-outline',
+              tone: 'orange',
+            },
+            {
+              label: 'Returned',
+              value: disbursed?.returned || 0,
+              icon: 'restore',
+              tone: 'red',
+            },
+            {
+              label: 'Resend',
+              value: disbursed?.resend || 0,
+              icon: 'send-outline',
+              tone: 'sky',
+            },
+          ]);
+
+          setScholarship([
+            { label: 'Total Approved', value: schol.totalApprovedAmount || 0, tone: 'purple' },
+            { label: 'Total Disbursed', value: schol.totalDisbursedAmount || 0, tone: 'green' },
+            { label: 'Total Pending', value: schol.totalPendingAmount || 0, tone: 'orange' },
+          ]);
+        }
+      } else {
+        console.warn('Dashboard data not found:', response.message);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTabPress = key => {
     if (key === 'Dashboard') return;
@@ -338,125 +522,132 @@ const DashboardScreen = ({ navigation }) => {
       />
 
       <View style={styles.body}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Member Overview */}
-          <SectionCard
-            icon="account-group-outline"
-            title="Member Overview"
-            subtitle="All registered member types and their current status"
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading Dashboard...</Text>
+          </View>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
           >
-            <View style={styles.memberGrid}>
-              {MEMBERS.map(item => (
-                <MemberTile key={item.label} item={item} />
-              ))}
-            </View>
-          </SectionCard>
-
-          {/* Collection Overview */}
-          <SectionCard
-            icon="cash-multiple"
-            title="Collection Overview"
-            subtitle="Fund balances and collection breakdown"
-          >
-            <View style={styles.collectionRow}>
-              <LinearGradient
-                colors={['#E3F6EA', '#BFE8CF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.totalCard}
-              >
-                <View style={styles.totalIcon}>
-                  <Icon name="currency-inr" size={30} color={colors.white} />
-                </View>
-
-                <View style={styles.totalText}>
-                  <Text style={styles.totalLabel}>Total Collection</Text>
-                  <Text
-                    style={styles.totalValue}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {formatRs(COLLECTION.total)}
-                  </Text>
-                </View>
-              </LinearGradient>
-
-              <View style={styles.fundGrid}>
-                {COLLECTION.items.map(item => (
-                  <FundTile key={item.label} item={item} />
+            {/* Member Overview */}
+            <SectionCard
+              icon="account-group-outline"
+              title="Member Overview"
+              subtitle="All registered member types and their current status"
+            >
+              <View style={styles.memberGrid}>
+                {members.map(item => (
+                  <MemberTile key={item.label} item={item} />
                 ))}
               </View>
-            </View>
-          </SectionCard>
+            </SectionCard>
 
-          {/* Wazifadar Overview */}
-          <SectionCard
-            icon="school-outline"
-            title="Wazifadar Overview"
-            subtitle="Scholarship applications and disbursement status"
-          >
-            <View style={styles.wazifaRow}>
-              {WAZIFADAR.map(item => (
-                <WazifaTile key={item.label} item={item} />
-              ))}
-            </View>
-          </SectionCard>
+            {/* Collection Overview */}
+            <SectionCard
+              icon="cash-multiple"
+              title="Collection Overview"
+              subtitle="Fund balances and collection breakdown"
+            >
+              <View style={styles.collectionRow}>
+                <LinearGradient
+                  colors={['#E3F6EA', '#BFE8CF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.totalCard}
+                >
+                  <View style={styles.totalIcon}>
+                    <Icon name="currency-inr" size={30} color={colors.white} />
+                  </View>
 
-          {/* Scholarship Amounts */}
-          <SectionCard
-            icon="currency-inr"
-            title="Scholarship Amounts"
-            subtitle="Financial breakdown — current year"
-          >
-            <View style={styles.amountRow}>
-              {SCHOLARSHIP.map(item => (
-                <AmountTile key={item.label} item={item} />
-              ))}
-            </View>
-          </SectionCard>
+                  <View style={styles.totalText}>
+                    <Text style={styles.totalLabel}>Total Collection</Text>
+                    <Text
+                      style={styles.totalValue}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
+                      {formatRs(collection.total)}
+                    </Text>
+                  </View>
+                </LinearGradient>
 
-          {/* Recent Transactions */}
-          <View style={styles.card}>
-            <View style={styles.txHeader}>
-              <View style={styles.txTitleRow}>
-                <Icon name="swap-horizontal" size={26} color={colors.primary} />
-                <Text style={styles.txTitle}>Recent Transactions</Text>
+                <View style={styles.fundGrid}>
+                  {collection.items.map(item => (
+                    <FundTile key={item.label} item={item} />
+                  ))}
+                </View>
               </View>
+            </SectionCard>
 
-              <TouchableOpacity
-                style={styles.viewAll}
-                onPress={() =>
-                  navigation && navigation.navigate('Transactions')
-                }
-              >
-                <Text style={styles.viewAllText}>View All</Text>
-                <Icon name="arrow-right" size={18} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
+            {/* Wazifadar Overview */}
+            <SectionCard
+              icon="school-outline"
+              title="Wazifadar Overview"
+              subtitle="Scholarship applications and disbursement status"
+            >
+              <View style={styles.wazifaRow}>
+                {wazifadar.map(item => (
+                  <WazifaTile key={item.label} item={item} />
+                ))}
+              </View>
+            </SectionCard>
 
-            {TRANSACTIONS.map(tx => (
-              <View key={tx.id} style={styles.txRow}>
-                <Icon name="calendar-month-outline" size={20} color="#4B5563" />
+            {/* Scholarship Amounts */}
+            <SectionCard
+              icon="currency-inr"
+              title="Scholarship Amounts"
+              subtitle="Financial breakdown — current year"
+            >
+              <View style={styles.amountRow}>
+                {scholarship.map(item => (
+                  <AmountTile key={item.label} item={item} />
+                ))}
+              </View>
+            </SectionCard>
 
-                <Text style={styles.txDate}>{tx.date}</Text>
-
-                <View style={styles.txNameBox}>
-                  <Text style={styles.txName} numberOfLines={1}>
-                    {tx.name}
-                  </Text>
-                  <Text style={styles.txType}>{tx.type}</Text>
+            {/* Recent Transactions */}
+            <View style={styles.card}>
+              <View style={styles.txHeader}>
+                <View style={styles.txTitleRow}>
+                  <Icon name="swap-horizontal" size={26} color={colors.primary} />
+                  <Text style={styles.txTitle}>Recent Transactions</Text>
                 </View>
 
-                <Text style={styles.txAmount}>{formatRs(tx.amount)}</Text>
-
-                <ModeBadge mode={tx.mode} />
+                <TouchableOpacity
+                  style={styles.viewAll}
+                  onPress={() =>
+                    navigation && navigation.navigate('Transactions')
+                  }
+                >
+                  <Text style={styles.viewAllText}>View All</Text>
+                  <Icon name="arrow-right" size={18} color={colors.primary} />
+                </TouchableOpacity>
               </View>
-            ))}
-          </View>
-        </ScrollView>
+
+              {TRANSACTIONS.map(tx => (
+                <View key={tx.id} style={styles.txRow}>
+                  <Icon name="calendar-month-outline" size={20} color="#4B5563" />
+
+                  <Text style={styles.txDate}>{tx.date}</Text>
+
+                  <View style={styles.txNameBox}>
+                    <Text style={styles.txName} numberOfLines={1}>
+                      {tx.name}
+                    </Text>
+                    <Text style={styles.txType}>{tx.type}</Text>
+                  </View>
+
+                  <Text style={styles.txAmount}>{formatRs(tx.amount)}</Text>
+
+                  <ModeBadge mode={tx.mode} />
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        )}
       </View>
 
       <BottomNav active="Dashboard" onPress={handleTabPress} />
@@ -477,6 +668,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundDark,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.semiBold,
+    color: colors.primary,
   },
 
   scrollContent: {

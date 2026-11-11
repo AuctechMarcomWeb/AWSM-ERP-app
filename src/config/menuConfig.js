@@ -96,6 +96,7 @@ export const MENU_CONFIG = {
     label: 'Collection',
     icon: 'cash-multiple',
     modules: [
+      'collection',  // ← Add parent module
       'collection_receive_payment',
       'collection_transaction',
       'collection_report',

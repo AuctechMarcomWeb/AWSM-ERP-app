@@ -47,10 +47,18 @@ export const getProfile = async () => {
 
     if (response.data.success && response.data.data?.user) {
       const userData = response.data.data.user;
+      const permissions = userData.permissions || [];
+      
+      console.log('✅ Profile API Response:');
+      console.log('   - User:', userData.name);
+      console.log('   - Role:', userData.role);
+      console.log('   - Total Permissions:', permissions.length);
+      console.log('   - Permissions:', permissions);
+      
       return {
         success: true,
         user: userData,
-        permissions: userData.permissions || [],
+        permissions: permissions,
         role: userData.role,
         message: response.data.message,
       };

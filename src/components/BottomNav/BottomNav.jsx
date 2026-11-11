@@ -16,7 +16,7 @@ import { FontFamily } from '../../themes/typography';
 
 const TABS = [
   {
-    key: 'Dashboard',
+    key: 'CommunityPost',
     label: 'Home',
     icon: 'view-dashboard-outline',
     activeIcon: 'view-dashboard',
@@ -41,7 +41,7 @@ const TABS = [
   },
 ];
 
-const BottomNav = ({ active = 'Dashboard', onPress }) => {
+const BottomNav = ({ active = 'CommunityPost', onPress }) => {
   const navigation = useNavigation();
 
   const handleTabPress = tabKey => {
@@ -51,8 +51,8 @@ const BottomNav = ({ active = 'Dashboard', onPress }) => {
     }
 
     // Navigate to drawer screen
-    if (tabKey === 'Dashboard') {
-      navigation.navigate('Dashboard');
+    if (tabKey === 'CommunityPost') {
+      navigation.navigate('CommunityPost');
     } else if (tabKey === 'ProfileScreen') {
       navigation.navigate('ProfileScreen');
     } else if (tabKey === 'SettingScreen') {

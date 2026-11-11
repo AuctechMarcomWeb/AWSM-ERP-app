@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Sidebar from '../components/Sidebar/Sidebar';
 import { MENU_CONFIG } from '../config/menuConfig';
+import CommunityPost from '../Screens/CommunityPost/CommunityPost';
 
 // Import role-specific Dashboard screens
 import SuperAdminDashboard from '../Screens/Dashboard/SuperAdmin/Dashboardscreen/Dashboardscreen';
@@ -65,6 +66,8 @@ import AddLocalSecretaryScreen from '../Screens/Common/OrganizationStructure/Loc
 import UserAccessManagementScreen from '../Screens/Common/UserAccessManagementScreen/UserAccessManagementScreen';
 import ActivityLogsScreen from '../Screens/Common/ActivityLogsScreen/ActivityLogsScreen';
 
+import UnderDevelopmentScreen from '../Screens/UnderDevelopmentScreen/UnderDevelopmentScreen';
+
 // Import Master Screens
 import DesignationScreen from '../Screens/Master/Designation/Designation';
 import AddDesignationScreen from '../Screens/Master/Designation/AddDesignationScreen';
@@ -110,6 +113,18 @@ const AuthNavigation = () => {
       screenOptions={{ headerShown: false }}
       drawerContent={props => <Sidebar {...props} role={role} />}
     >
+      {/* CommunityPost Screen - Home Feed */}
+      <Drawer.Screen
+        name="CommunityPost"
+        component={CommunityPost}
+        options={{
+          title: 'Home',
+          drawerIcon: ({ color }) => (
+            <Icon name="view-dashboard-outline" size={20} color={color} />
+          ),
+        }}
+      />
+
       {/* Dashboard Screen - Role Specific */}
       <Drawer.Screen
         name="Dashboard"
@@ -305,6 +320,16 @@ const AuthNavigation = () => {
         component={PaymentListScreen}
         options={{
           title: 'Payment List',
+          drawerIcon: ({ color }) => (
+            <Icon name="list" size={20} color={color} />
+          ),
+        }}
+      />
+           <Drawer.Screen
+        name="UnderDevelopmentScreen"
+        component={UnderDevelopmentScreen}
+        options={{
+          title: 'UnderDevelopmentScreen',
           drawerIcon: ({ color }) => (
             <Icon name="list" size={20} color={color} />
           ),

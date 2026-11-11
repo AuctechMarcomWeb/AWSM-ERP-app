@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { setToken, setUser } from '../redux/slice/userSlice';
 import { preloadToken } from '../api/apiConfig';
+import { getProfile } from '../api/auth';
 import AuthNavigation from './AuthNavigation';
 import UnauthNavigation from './UnauthNavigation';
 
@@ -31,8 +32,39 @@ const RootNavigation = () => {
         if (savedUser) {
           dispatch(setUser(JSON.parse(savedUser)));
         }
+
+        // Fetch fresh profile with permissions after token is set
+        if (savedToken) {
+          try {
+            console.log('📡 Fetching profile with permissions...');
+            const profileResult = await getProfile();
+
+            if (profileResult.success && profileResult.user) {
+              console.log('✅ Profile fetched successfully');
+              // Update user with fresh permissions
+              dispatch(
+                setUser({
+                  ...profileResult.user,
+                  permissions: profileResult.permissions || [],
+                  role: profileResult.role,
+                })
+              );
+
+              // Save updated user data
+              await AsyncStorage.setItem(
+                'userData',
+                JSON.stringify(profileResult.user)
+              );
+            } else {
+              console.warn('⚠️ Profile fetch failed:', profileResult.message);
+            }
+          } catch (profileError) {
+            console.error('❌ Error fetching profile:', profileError.message);
+            // Don't fail the bootstrap - user can still navigate
+          }
+        }
       } catch (e) {
-        console.error('Error restoring data:', e);
+        console.error('❌ Error in bootstrap:', e.message);
       } finally {
         setIsLoading(false);
       }

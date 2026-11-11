@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   FlatList,
   Modal,
   Platform,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,11 +22,23 @@ import DashboardHeader from '../../../components/DashboardHeader/DashboardHeader
 import BottomNav from '../../../components/BottomNav/BottomNav';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
+import {
+  Body,
+  Label,
+  SearchField,
+  Dropdown,
+  GreenButton,
+  GrayButton,
+  Badge,
+} from '../../../components/Formparts';
+
+// Import membership API functions
+import { getMasterRegister, getMembersFiltered } from '../../../api/membership';
 
 // ---------------------------------------------------------------
-// Dummy data — replace with your API response
+// Dummy data — fallback when API fails
 // ---------------------------------------------------------------
-const TYPES = [
+const DEFAULT_TYPES = [
   'All Types',
   'Wazifadar',
   'Life Member',
@@ -36,50 +48,17 @@ const TYPES = [
   'Mohsine Member',
 ];
 
-const MEMBERS = [
-  {
-    id: '001527',
-    name: 'Ali Raza',
-    wmrn: '202610174685',
-    type: 'Wazifadar',
-    date: '2026-10-17',
-  },
-  {
-    id: '001526',
-    name: 'Adeeba mansoor',
-    wmrn: '202610132596',
-    type: 'Wazifadar',
-    date: '2026-10-13',
-  },
-  {
-    id: '001525',
-    name: 'Areeba Fatima',
-    wmrn: '202610136018',
-    type: 'Wazifadar',
-    date: '2026-10-13',
-  },
-  {
-    id: '001524',
-    name: 'SYED KAZIM ABBAS',
-    wmrn: '202610131619',
-    type: 'Wazifadar',
-    date: '2026-10-13',
-  },
-  {
-    id: '001523',
-    name: 'Taib ali',
-    wmrn: '202610135553',
-    type: 'Wazifadar',
-    date: '2026-10-13',
-  },
-  {
-    id: '001522',
-    name: 'Mehzabi',
-    wmrn: '202610138000',
-    type: 'Wazifadar',
-    date: '2026-10-13',
-  },
+const TYPE_OPTIONS = [
+  'All Types',
+  'Wazifadar',
+  'Life Member',
+  'Ordinary Member',
+  'Dawami Member',
+  'Sarparast Member',
+  'Mohsine Member',
 ];
+
+const DEFAULT_MEMBERS = [];
 
 const AVATAR_TONES = [
   { bg: '#DCE7FF', text: '#2563EB' },
@@ -119,51 +98,132 @@ const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 // ---------------------------------------------------------------
 const MasterRegister = ({ navigation }) => {
   const [search, setSearch] = useState('');
-  const [type, setType] = useState('All Types');
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  // applied filters (after pressing Apply)
+  // Applied Filters
   const [applied, setApplied] = useState({
+    search: '',
     type: 'All Types',
-    from: null,
-    to: null,
+    fromDate: null,
+    toDate: null,
   });
 
-  const [typeOpen, setTypeOpen] = useState(false);
-  const [picker, setPicker] = useState(null); // 'from' | 'to' | null
-  const [selectedId, setSelectedId] = useState(MEMBERS[0].id);
+  // Draft Filters in Modal
+  const [draftType, setDraftType] = useState('All Types');
+  const [draftFromDate, setDraftFromDate] = useState(null);
+  const [draftToDate, setDraftToDate] = useState(null);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
 
-  const data = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  // API state
+  const [loading, setLoading] = useState(true);
+  const [allMembers, setAllMembers] = useState(DEFAULT_MEMBERS);
+  const [selectedId, setSelectedId] = useState(null);
 
-    return MEMBERS.filter(m => {
-      if (applied.type !== 'All Types' && m.type !== applied.type) return false;
+  // Fetch master register data on mount
+  useEffect(() => {
+    fetchMasterRegister();
+  }, []);
 
-      const d = startOfDay(new Date(m.date));
-      if (applied.from && d < startOfDay(applied.from)) return false;
-      if (applied.to && d > startOfDay(applied.to)) return false;
+  const fetchMasterRegister = async () => {
+    setLoading(true);
+    try {
+      const response = await getMasterRegister(1, 100, '', false);
 
-      if (q && !m.name.toLowerCase().includes(q) && !m.wmrn.includes(q))
-        return false;
+      if (response.success && response.memberships) {
+        setAllMembers(response.memberships);
+        if (response.memberships.length > 0) {
+          setSelectedId(response.memberships[0].id);
+        }
+      } else {
+        console.warn('Failed to fetch members:', response.message);
+        setAllMembers(DEFAULT_MEMBERS);
+      }
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      setAllMembers(DEFAULT_MEMBERS);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      return true;
+  const openFilter = () => {
+    setDraftType(applied.type);
+    setDraftFromDate(applied.fromDate);
+    setDraftToDate(applied.toDate);
+    setFilterOpen(true);
+  };
+
+  const applyFilter = () => {
+    setApplied(prev => ({
+      ...prev,
+      type: draftType,
+      fromDate: draftFromDate,
+      toDate: draftToDate,
+    }));
+    setFilterOpen(false);
+  };
+
+  const handleReset = () => {
+    setDraftType('All Types');
+    setDraftFromDate(null);
+    setDraftToDate(null);
+    setSearch('');
+    setApplied({
+      search: '',
+      type: 'All Types',
+      fromDate: null,
+      toDate: null,
     });
-  }, [search, applied]);
+  };
 
-  const handleApply = () => setApplied({ type, from: fromDate, to: toDate });
-
-  const handleDateChange = (event, date) => {
+  const handleFromDateChange = (event, selectedDate) => {
     if (Platform.OS === 'android') {
-      const field = picker;
-      setPicker(null);
-      if (event.type === 'dismissed' || !date) return;
-      field === 'from' ? setFromDate(date) : setToDate(date);
-      return;
+      setShowFromPicker(false);
+    }
+    if (selectedDate) {
+      setDraftFromDate(startOfDay(selectedDate));
+    }
+  };
+
+  const handleToDateChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setShowToPicker(false);
+    }
+    if (selectedDate) {
+      setDraftToDate(startOfDay(selectedDate));
+    }
+  };
+
+  // Combined filtering: type + date range + search
+  const data = useMemo(() => {
+    let filtered = [...allMembers];
+
+    // Filter by type
+    if (applied.type !== 'All Types') {
+      filtered = filtered.filter(m => m.type === applied.type);
     }
 
-    if (date) picker === 'from' ? setFromDate(date) : setToDate(date);
-  };
+    // Filter by date range
+    if (applied.fromDate || applied.toDate) {
+      filtered = filtered.filter(m => {
+        const memberDate = startOfDay(new Date(m.date));
+        if (applied.fromDate && memberDate < startOfDay(applied.fromDate)) return false;
+        if (applied.toDate && memberDate > startOfDay(applied.toDate)) return false;
+        return true;
+      });
+    }
+
+    // Filter by search
+    const q = applied.search.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(m => {
+        return m.name.toLowerCase().includes(q) || m.wmrn.includes(q);
+      });
+    }
+
+    return filtered;
+  }, [applied, allMembers]);
 
   const openMember = member => {
     setSelectedId(member.id);
@@ -219,163 +279,171 @@ const MasterRegister = ({ navigation }) => {
         </View>
 
         <View style={styles.body}>
-          {/* Filters */}
-          <View style={styles.filters}>
-            <View style={styles.searchBox}>
-              <Icon name="magnify" size={24} color="#6B7280" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search name, WMRN..."
-                placeholderTextColor={colors.placeHolderColor}
-                value={search}
-                onChangeText={setSearch}
-                autoCorrect={false}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading Members...</Text>
+            </View>
+          ) : (
+            <Body>
+              <FlatList
+                data={data}
+                keyExtractor={item => item.id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                ListHeaderComponent={
+                  <View>
+                    {/* Search Field & Filter Icon Row */}
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search name, WMRN..."
+                          value={search}
+                          onChangeText={text => {
+                            setSearch(text);
+                            setApplied(prev => ({ ...prev, search: text }));
+                          }}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Icon
+                      name="account-search-outline"
+                      size={40}
+                      color="#9CA3AF"
+                    />
+                    <Text style={styles.emptyTitle}>No members found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try adjusting your search or filters.
+                    </Text>
+                  </View>
+                }
               />
-            </View>
-
-            <View style={styles.filterRow}>
-              <TouchableOpacity
-                style={[styles.filterBox, styles.typeBox]}
-                activeOpacity={0.8}
-                onPress={() => setTypeOpen(true)}
-              >
-                <Text style={styles.typeText} numberOfLines={1}>
-                  {type}
-                </Text>
-                <Icon name="chevron-down" size={22} color="#374151" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.filterBox, styles.dateBox]}
-                activeOpacity={0.8}
-                onPress={() => setPicker('from')}
-              >
-                <Text
-                  style={fromDate ? styles.dateText : styles.datePlaceholder}
-                  numberOfLines={1}
-                >
-                  {fromDate ? formatDate(fromDate) : 'From Date'}
-                </Text>
-                <Icon name="calendar-month-outline" size={20} color="#374151" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.filterBox, styles.dateBox]}
-                activeOpacity={0.8}
-                onPress={() => setPicker('to')}
-              >
-                <Text
-                  style={toDate ? styles.dateText : styles.datePlaceholder}
-                  numberOfLines={1}
-                >
-                  {toDate ? formatDate(toDate) : 'To Date'}
-                </Text>
-                <Icon name="calendar-month-outline" size={20} color="#374151" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.applyButton}
-              activeOpacity={0.85}
-              onPress={handleApply}
-            >
-              <Text style={styles.applyText}>Apply</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* List */}
-          <FlatList
-            data={data}
-            keyExtractor={item => item.id}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Icon name="account-search-outline" size={46} color="#9CA3AF" />
-                <Text style={styles.emptyText}>No members found</Text>
-              </View>
-            }
-          />
+            </Body>
+          )}
         </View>
 
         <BottomNav active="Members" onPress={handleTabPress} />
       </View>
 
-      {/* Type Picker */}
+      {/* Filter Modal */}
       <Modal
-        visible={typeOpen}
+        visible={filterOpen}
         transparent
-        animationType="fade"
-        onRequestClose={() => setTypeOpen(false)}
+        animationType="slide"
+        onRequestClose={() => setFilterOpen(false)}
       >
         <TouchableOpacity
           style={styles.overlay}
           activeOpacity={1}
-          onPress={() => setTypeOpen(false)}
+          onPress={() => setFilterOpen(false)}
         >
-          <View style={styles.sheet}>
-            {TYPES.map(t => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.sheetItem, t === type && styles.sheetItemActive]}
-                onPress={() => {
-                  setType(t);
-                  setTypeOpen(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.sheetText,
-                    t === type && styles.sheetTextActive,
-                  ]}
+          <View
+            style={styles.filterSheet}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.filterTitle}>Filter Members</Text>
+              <TouchableOpacity onPress={() => setFilterOpen(false)}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Label text="Member Type" />
+            <Dropdown
+              value={draftType}
+              options={TYPE_OPTIONS}
+              onSelect={setDraftType}
+              style={styles.modalGap}
+            />
+
+            <Label text="Joined From" />
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowFromPicker(true)}
+            >
+              <Icon name="calendar" size={16} color={colors.primary} />
+              <Text style={styles.dateButtonText}>
+                {draftFromDate ? formatDate(draftFromDate) : 'Select date'}
+              </Text>
+              {draftFromDate && (
+                <TouchableOpacity
+                  onPress={() => setDraftFromDate(null)}
+                  style={styles.clearDateBtn}
                 >
-                  {t}
-                </Text>
-                {t === type && (
-                  <Icon name="check" size={18} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                  <Icon name="close" size={14} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
 
-      {/* Date Picker */}
-      {picker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={(picker === 'from' ? fromDate : toDate) || new Date()}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
-
-      {picker && Platform.OS === 'ios' && (
-        <Modal
-          transparent
-          animationType="slide"
-          onRequestClose={() => setPicker(null)}
-        >
-          <View style={styles.iosOverlay}>
-            <View style={styles.iosSheet}>
-              <TouchableOpacity
-                style={styles.iosDone}
-                onPress={() => setPicker(null)}
-              >
-                <Text style={styles.iosDoneText}>Done</Text>
-              </TouchableOpacity>
-
+            {showFromPicker && (
               <DateTimePicker
-                value={(picker === 'from' ? fromDate : toDate) || new Date()}
+                value={draftFromDate || new Date()}
                 mode="date"
-                display="spinner"
-                onChange={handleDateChange}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleFromDateChange}
+              />
+            )}
+
+            <Label text="Joined To" />
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowToPicker(true)}
+            >
+              <Icon name="calendar" size={16} color={colors.primary} />
+              <Text style={styles.dateButtonText}>
+                {draftToDate ? formatDate(draftToDate) : 'Select date'}
+              </Text>
+              {draftToDate && (
+                <TouchableOpacity
+                  onPress={() => setDraftToDate(null)}
+                  style={styles.clearDateBtn}
+                >
+                  <Icon name="close" size={14} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            {showToPicker && (
+              <DateTimePicker
+                value={draftToDate || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleToDateChange}
+              />
+            )}
+
+            <View style={styles.actionRow}>
+              <GreenButton
+                title="Apply"
+                onPress={applyFilter}
+                style={styles.applyBtn}
+              />
+              <GrayButton
+                title="Reset"
+                onPress={handleReset}
+                style={styles.resetBtn}
               />
             </View>
           </View>
-        </Modal>
-      )}
+        </TouchableOpacity>
+      </Modal>
     </AppLayout>
   );
 };
@@ -404,101 +472,38 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  // Filters
-  filters: {
-    paddingHorizontal: wp('4%'),
-    paddingTop: 18,
-    paddingBottom: 8,
-  },
-
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 50,
-    backgroundColor: '#F7FAF8',
-    borderWidth: 1,
-    borderColor: '#E2E8E4',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-  },
-
-  searchInput: {
+  loadingContainer: {
     flex: 1,
-    height: '100%',
-    marginLeft: 10,
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.regular,
-    color: colors.SecondTitleColor,
-    paddingVertical: 0,
-  },
-
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-
-  filterBox: {
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FBFCFB',
-    borderWidth: 1,
-    borderColor: '#E2E8E4',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-  },
-
-  typeBox: {
-    flex: 1.05,
-    marginRight: 8,
-  },
-
-  dateBox: {
-    flex: 1,
-    marginRight: 8,
-  },
-
-  typeText: {
-    flex: 1,
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
-    color: '#1F2937',
-  },
-
-  datePlaceholder: {
-    flex: 1,
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.regular,
-    color: '#6B7280',
-  },
-
-  dateText: {
-    flex: 1,
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.medium,
-    color: '#1F2937',
-  },
-
-  applyButton: {
-    height: 48,
-    marginTop: 10,
-    borderRadius: 10,
-    backgroundColor: '#2E8B3E',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    backgroundColor: colors.white,
   },
 
-  applyText: {
-    fontSize: FontSize.md,
-    fontFamily: FontFamily.bold,
-    color: colors.white,
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.semiBold,
+    color: colors.primary,
+  },
+
+  searchFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 25,
+  },
+  searchFlex: {
+    flex: 1,
+    marginRight: 8,
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
   },
 
   // List
@@ -579,81 +584,86 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  empty: {
+  emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 50,
-  },
-
-  emptyText: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
-    color: '#6B7280',
-    marginTop: 8,
-  },
-
-  // Type modal
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 40,
   },
 
-  sheet: {
-    width: wp('70%'),
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    paddingVertical: 8,
-    elevation: 8,
-  },
-
-  sheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 13,
-  },
-
-  sheetItemActive: {
-    backgroundColor: colors.primaryLight,
-  },
-
-  sheetText: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
-    color: colors.SecondTitleColor,
-  },
-
-  sheetTextActive: {
+  emptyTitle: {
+    fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
-    color: colors.primary,
+    color: '#1F2937',
+    marginTop: 10,
+    marginBottom: 4,
   },
 
-  // iOS date picker
-  iosOverlay: {
+  emptySubtitle: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+
+  overlay: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
-
-  iosSheet: {
+  filterSheet: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 24,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    paddingBottom: 30,
   },
-
-  iosDone: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
   },
-
-  iosDoneText: {
-    fontSize: FontSize.md,
+  filterTitle: {
+    fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
-    color: colors.primary,
+    color: colors.TitleColor,
+  },
+  modalGap: {
+    marginBottom: 12,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    backgroundColor: '#F7FAF8',
+    borderWidth: 1,
+    borderColor: '#E2E8E4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  dateButtonText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+    color: colors.TitleColor,
+  },
+  clearDateBtn: {
+    padding: 4,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+  applyBtn: {
+    flex: 1,
+    marginRight: 8,
+    height: 48,
+  },
+  resetBtn: {
+    flex: 1,
+    height: 48,
   },
 });
 
