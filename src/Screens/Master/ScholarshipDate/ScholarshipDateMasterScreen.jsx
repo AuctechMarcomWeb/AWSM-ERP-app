@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import colors from '../../../../themes/colors';
-import { FontFamily, FontSize } from '../../../../themes/typography';
+import colors from '../../../themes/colors';
+import { FontFamily, FontSize } from '../../../themes/typography';
 
-import AppLayout from '../../../../components/AppLayout/AppLayout';
-import BackHeader from '../../../../components/BackHeader/BackHeader';
+import AppLayout from '../../../components/AppLayout/AppLayout';
+import BackHeader from '../../../components/BackHeader/BackHeader';
 import {
     Body,
     Label,
@@ -24,7 +24,7 @@ import {
     GrayButton,
     Badge,
     shared,
-} from '../../../../components/Formparts';
+} from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 const STATUS_OPTIONS = ['All Status', 'Active', 'Suspended', 'Expired'];
@@ -268,8 +268,18 @@ const ScholarshipDateMasterScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.primary },
-    body: { flex: 1, backgroundColor: colors.white, overflow: 'hidden' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F1F6F3',
+  },
+  body: {
+    flex: 1,
+    marginTop: 0,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    overflow: 'hidden',
+  },
 
     topHeaderRow: {
         flexDirection: 'row',
@@ -303,6 +313,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 12,
+             marginTop: 25,
     },
     searchFlex: {
         flex: 1,

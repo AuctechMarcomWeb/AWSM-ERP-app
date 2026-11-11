@@ -19,7 +19,6 @@ import BottomNav from '../../../components/BottomNav/BottomNav';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
 
-
 // ---------------------------------------------------------------
 // Dummy data — replace with your API response
 // ---------------------------------------------------------------

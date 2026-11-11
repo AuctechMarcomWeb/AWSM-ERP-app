@@ -8,9 +8,9 @@ import {
     Platform,
 } from 'react-native';
 
-import colors from '../../../../themes/colors';
-import AppLayout from '../../../../components/AppLayout/AppLayout';
-import BackHeader from '../../../../components/BackHeader/BackHeader';
+import colors from '../../../themes/colors';
+import AppLayout from '../../../components/AppLayout/AppLayout';
+import BackHeader from '../../../components/BackHeader/BackHeader';
 import {
     Body,
     Label,
@@ -19,7 +19,7 @@ import {
     GreenButton,
     GrayButton,
     shared,
-} from '../../../../components/Formparts';
+} from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 const STATUS_OPTIONS = ['Active', 'Suspended', 'Expired'];
@@ -106,12 +106,23 @@ const AddExpenseScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.primary },
-    body: { flex: 1, backgroundColor: colors.white, overflow: 'hidden' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F1F6F3',
+  },
+  body: {
+    flex: 1,
+    marginTop: 0,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    overflow: 'hidden',
+  },
     scrollContent: {
         paddingHorizontal: wp('4%'),
         paddingTop: 16,
         paddingBottom: 30,
+             marginTop: 25,
     },
     mb: {
         marginBottom: 12,

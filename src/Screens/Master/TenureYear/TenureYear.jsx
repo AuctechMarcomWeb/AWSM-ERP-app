@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import colors from '../../../../themes/colors';
-import { FontFamily, FontSize } from '../../../../themes/typography';
+import colors from '../../../themes/colors';
+import { FontFamily, FontSize } from '../../../themes/typography';
 
-import AppLayout from '../../../../components/AppLayout/AppLayout';
-import BackHeader from '../../../../components/BackHeader/BackHeader';
+import AppLayout from '../../../components/AppLayout/AppLayout';
+import BackHeader from '../../../components/BackHeader/BackHeader';
 import {
   Body,
   Label,
@@ -24,7 +24,7 @@ import {
   GrayButton,
   Badge,
   shared,
-} from '../../../../components/Formparts';
+} from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 const STATUS_OPTIONS = ['All Status', 'Active', 'Suspended', 'Expired'];
@@ -152,8 +152,6 @@ const TenureYearMasterScreen = ({ navigation }) => {
               contentContainerStyle={styles.listContent}
               ListHeaderComponent={
                 <View>
-        
-
                   {/* Search Field & Filter Icon Row */}
                   <View style={styles.searchFilterContainer}>
                     <View style={styles.searchFlex}>
@@ -322,7 +320,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-      marginTop: 25,
+    marginTop: 25,
   },
   searchFlex: {
     flex: 1,

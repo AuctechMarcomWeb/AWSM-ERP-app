@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import colors from '../../../../themes/colors';
-import { FontFamily, FontSize } from '../../../../themes/typography';
+import colors from '../../../themes/colors';
+import { FontFamily, FontSize } from '../../../themes/typography';
 
-import AppLayout from '../../../../components/AppLayout/AppLayout';
-import BackHeader from '../../../../components/BackHeader/BackHeader';
+import AppLayout from '../../../components/AppLayout/AppLayout';
+import BackHeader from '../../../components/BackHeader/BackHeader';
 import {
   Body,
   Label,
@@ -24,7 +24,7 @@ import {
   GrayButton,
   Badge,
   shared,
-} from '../../../../components/Formparts';
+} from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 const MEMBER_TYPES = [

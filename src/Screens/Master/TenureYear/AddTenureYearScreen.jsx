@@ -8,9 +8,9 @@ import {
   Platform,
 } from 'react-native';
 
-import colors from '../../../../themes/colors';
-import AppLayout from '../../../../components/AppLayout/AppLayout';
-import BackHeader from '../../../../components/BackHeader/BackHeader';
+import colors from '../../../themes/colors';
+import AppLayout from '../../../components/AppLayout/AppLayout';
+import BackHeader from '../../../components/BackHeader/BackHeader';
 import {
   Body,
   Label,
@@ -18,7 +18,7 @@ import {
   Dropdown,
   GreenButton,
   shared,
-} from '../../../../components/Formparts';
+} from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 const STATUS_OPTIONS = ['Active', 'Suspended', 'Expired'];
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp('4%'),
     paddingTop: 16,
     paddingBottom: 30,
-      marginTop: 25,
+    marginTop: 25,
   },
   gapRow: {
     marginBottom: 12,

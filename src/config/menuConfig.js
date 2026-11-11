@@ -18,6 +18,51 @@ export const MENU_CONFIG = {
     modules: ['master_register'],
   },
 
+  // Wazifedaar (5 sub-items)
+  Wazifedaar: {
+    label: 'Wazifedaar',
+    icon: 'briefcase',
+    modules: [
+      'wazifedaar_apply_list',
+      'wazifedaar_verify_list',
+      'wazifedaar_transactions',
+      'wazifedaar_ledger',
+      'wazifedaar_due_report',
+    ],
+    subs: [
+      {
+        key: 'Applications',
+        module: 'wazifedaar_apply_list',
+        icon: 'file-document-outline',
+        screenName: 'WazifedaarApplications',
+      },
+      {
+        key: 'Verify',
+        module: 'wazifedaar_verify_list',
+        icon: 'check-circle',
+        screenName: 'WazifedaarVerify',
+      },
+      {
+        key: 'Transactions',
+        module: 'wazifedaar_transactions',
+        icon: 'swap-horizontal',
+        screenName: 'WazifedaarTransactions',
+      },
+      {
+        key: 'Ledger',
+        module: 'wazifedaar_ledger',
+        icon: 'book',
+        screenName: 'WazifedaarLedger',
+      },
+      {
+        key: 'Reports',
+        module: 'wazifedaar_due_report',
+        icon: 'chart-line',
+        screenName: 'WazifedaarReports',
+      },
+    ],
+  },
+
   // Communication (2 sub-items)
   Communication: {
     label: 'Communication',

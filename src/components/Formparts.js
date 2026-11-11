@@ -470,14 +470,22 @@ export const shared = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  // body: {
+  //   flex: 1,
+  //   marginTop: -24,
+  //   backgroundColor: colors.white,
+  //   borderTopLeftRadius: 28,
+  //   borderTopRightRadius: 28,
+  //   overflow: 'hidden',
+  // },
   body: {
-    flex: 1,
-    marginTop: -24,
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-  },
+  flex: 1,
+  marginTop: -25,
+  backgroundColor: colors.white,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+  overflow: 'visible',
+},
 
   label: {
     fontSize: FontSize.base,

@@ -21,7 +21,7 @@ import SettingsScreen from '../Screens/Common/SettingScreen/SettingScreen';
 import MasterRegisterScreen from '../Screens/Common/MasterRegister/MasterRegister';
 import MemberProfileScreen from '../Screens/Common/MemberProfile/MemberProfile';
 import LetterRecordScreen from '../Screens/Common/Letterrecordscreen/Letterrecordscreen';
-import MessagingScreen from '../Screens/Common/Messagingscreen /Messagingscreen ';
+import MessagingScreen from '../Screens/Common/Messagingscreen/Messagingscreen';
 import ComposeMessageScreen from '../Screens/Common/Composemessagescreen/Composemessagescreen';
 import ExpenditureScreen from '../Screens/Common/Expenditurescreen/Expenditurescreen';
 import AddExpenditureScreen from '../Screens/Common/Expenditurescreen/Addexpenditurescreen';
@@ -542,6 +542,8 @@ const AuthNavigation = () => {
 
           if (menuKey === 'MasterRegister') {
             ScreenComponent = MasterRegisterScreen;
+          } else if (menuKey === 'Wazifedaar') {
+            ScreenComponent = VerifyWazifaListScreen;
           } else {
             // Use placeholder for other menus (Coming Soon)
             ScreenComponent = ({ route }) => (

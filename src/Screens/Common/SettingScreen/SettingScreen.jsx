@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BackHeader from '../../../components/BackHeader/BackHeader';
 import AppLayout from '../../../components/AppLayout/AppLayout';
@@ -22,8 +23,10 @@ import {
 import Colors from '../../../themes/colors';
 import { FontFamily, FontSize } from '../../../themes/typography';
 import BottomNav from '../../../components/BottomNav/BottomNav';
+import { logout } from '../../../redux/slice/userSlice';
 
 const SettingsScreen = ({ navigation, onLogout }) => {
+  const dispatch = useDispatch();
   const { loginData, profile } = useSelector(state => state.user);
 
   const fullName = profile?.FullName || loginData?.Name || 'Member';
@@ -46,14 +49,19 @@ const SettingsScreen = ({ navigation, onLogout }) => {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: () => {
-            if (onLogout) {
-              onLogout();
-            } else {
-              Alert.alert(
-                'Logout Action Required',
-                'Please connect your Redux logout action to the onLogout prop.',
-              );
+          onPress: async () => {
+            // Logout and clean up
+            try {
+              // Clear AsyncStorage
+              await AsyncStorage.removeItem('authToken');
+              await AsyncStorage.removeItem('userData');
+              
+              // Dispatch logout action to clear Redux state
+              dispatch(logout());
+              
+            
+            } catch (error) {
+              Alert.alert('Error', 'Failed to logout. Please try again.');
             }
           },
         },
