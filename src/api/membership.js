@@ -318,6 +318,7 @@ export const getMembersByDateRange = async (
 
 /**
  * Get Members with Filters (Type + Date Range)
+ * Sends filters as URL query parameters to backend
  * @param {string} memberType - Member type
  * @param {Date} fromDate - Start date
  * @param {Date} toDate - End date
@@ -333,40 +334,51 @@ export const getMembersFiltered = async (
   limit = 10,
 ) => {
   try {
+    // Build query parameters
+    const params = new URLSearchParams({
+      page,
+      limit,
+      isPagination: false,
+    });
+
+    // Add member type filter if not 'All Types'
+    if (memberType && memberType !== 'All Types') {
+      params.append('memberType', memberType);
+    }
+
+    // Add date range filters
+    if (fromDate) {
+      const fromDateStr = fromDate instanceof Date 
+        ? fromDate.toISOString().split('T')[0]
+        : fromDate;
+      params.append('fromDate', fromDateStr);
+    }
+
+    if (toDate) {
+      const toDateStr = toDate instanceof Date 
+        ? toDate.toISOString().split('T')[0]
+        : toDate;
+      params.append('toDate', toDateStr);
+    }
+
+    console.log('📤 Filtered Members Request:', `/profileAc?${params.toString()}`);
+
     const response = await membershipApi.get(
-      `/profileAc?page=${page}&limit=${limit}&isPagination=false`,
+      `/profileAc?${params.toString()}`,
     );
 
     if (response.data.success && response.data.data?.memberships) {
-      const memberships = response.data.data.memberships
-        .filter(member => {
-          // Filter by type
-          if (memberType !== 'All Types') {
-            if (!member.relationships?.some(r => r.relationship === memberType)) {
-              return false;
-            }
-          }
+      const memberships = response.data.data.memberships.map(member => ({
+        id: member.relationships?.[0]?.applicationNo || member.acountNo,
+        name: member.fullName || '',
+        wmrn: member.acountNo || '',
+        type: member.relationships?.[0]?.relationship || 'Member',
+        date: member.createdAt?.split('T')[0] || '',
+        phone: member.mobileNumber || '',
+        email: member.email || '',
+      }));
 
-          // Filter by date range
-          if (fromDate || toDate) {
-            const memberDate = new Date(member.createdAt);
-            if (fromDate && memberDate < new Date(fromDate)) return false;
-            if (toDate && memberDate > new Date(toDate)) return false;
-          }
-
-          return true;
-        })
-        .map(member => ({
-          id: member.relationships?.[0]?.applicationNo || member.acountNo,
-          name: member.fullName || '',
-          wmrn: member.acountNo || '',
-          type: member.relationships?.[0]?.relationship || 'Member',
-          date: member.createdAt?.split('T')[0] || '',
-          phone: member.mobileNumber || '',
-          email: member.email || '',
-        }));
-
-      console.log('✅ Filtered Members:');
+      console.log('✅ Filtered Members Response:');
       console.log('   - Type:', memberType);
       console.log('   - From:', fromDate || 'any');
       console.log('   - To:', toDate || 'any');
@@ -386,6 +398,7 @@ export const getMembersFiltered = async (
     };
   } catch (error) {
     console.error('Filter error:', error.message);
+    console.error('Filter error response:', error.response?.data);
     return {
       success: false,
       memberships: [],

@@ -6,18 +6,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
+  Share,
 } from 'react-native';
+
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+
 import colors from '../../themes/colors';
 import typography from '../../themes/typography';
+
 import CommunityPostHeader from '../../components/CommunityPostHeader/CommunityPostHeader';
 import BottomNav from '../../components/BottomNav/BottomNav';
 
-const { width } = Dimensions.get('window');
-
-// 10 Extended Posts Data with Single and Multiple Images Support
 const COMMUNITY_POSTS = [
   {
     id: '1',
@@ -33,7 +33,6 @@ const COMMUNITY_POSTS = [
     ],
     views: '5,874',
     likes: '215',
-    comments: '11',
   },
   {
     id: '2',
@@ -47,10 +46,9 @@ const COMMUNITY_POSTS = [
     images: [
       'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600',
       'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600',
-    ], // Multiple images example
+    ],
     views: '1,240',
     likes: '89',
-    comments: '5',
   },
   {
     id: '3',
@@ -65,7 +63,6 @@ const COMMUNITY_POSTS = [
     ],
     views: '3,412',
     likes: '150',
-    comments: '22',
   },
   {
     id: '4',
@@ -80,10 +77,9 @@ const COMMUNITY_POSTS = [
       'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600',
       'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=600',
       'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=600',
-    ], // Three images grid example
+    ],
     views: '4,120',
     likes: '310',
-    comments: '42',
   },
   {
     id: '5',
@@ -97,7 +93,6 @@ const COMMUNITY_POSTS = [
     images: ['https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=600'],
     views: '2,950',
     likes: '184',
-    comments: '9',
   },
   {
     id: '6',
@@ -113,7 +108,6 @@ const COMMUNITY_POSTS = [
     ],
     views: '1,890',
     likes: '95',
-    comments: '14',
   },
   {
     id: '7',
@@ -129,7 +123,6 @@ const COMMUNITY_POSTS = [
     ],
     views: '5,012',
     likes: '420',
-    comments: '38',
   },
   {
     id: '8',
@@ -145,7 +138,6 @@ const COMMUNITY_POSTS = [
     ],
     views: '3,100',
     likes: '230',
-    comments: '17',
   },
   {
     id: '9',
@@ -161,7 +153,6 @@ const COMMUNITY_POSTS = [
     ],
     views: '2,450',
     likes: '175',
-    comments: '8',
   },
   {
     id: '10',
@@ -176,7 +167,6 @@ const COMMUNITY_POSTS = [
     ],
     views: '6,780',
     likes: '512',
-    comments: '64',
   },
 ];
 
@@ -186,16 +176,34 @@ const CommunityPostCard = ({ navigation }) => {
     navigation?.navigate(key);
   };
 
+  // Share Post Function
+  const handleShare = async post => {
+    try {
+      const hashtags = post.hashtags?.join(' ') || '';
+
+      const imageLinks = post.images?.length
+        ? '\n\nImages:\n' + post.images.join('\n')
+        : '';
+
+      const message = `${post.name}\n\n${post.text} ${
+        post.emojis || ''
+      }\n\n${hashtags}${imageLinks}`;
+
+      await Share.share({
+        message,
+        title: 'Share Community Post',
+      });
+    } catch (error) {
+      console.log('Share Error:', error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <CommunityPostHeader
-        onMenuPress={() =>
-          navigation && navigation.openDrawer && navigation.openDrawer()
-        }
-        onBellPress={() => navigation && navigation.navigate('Notifications')}
-        onProfilePress={() =>
-          navigation && navigation.navigate('ProfileScreen')
-        }
+        onMenuPress={() => navigation?.openDrawer?.()}
+        onBellPress={() => navigation?.navigate('Notifications')}
+        onProfilePress={() => navigation?.navigate('ProfileScreen')}
       />
 
       <View style={styles.body}>
@@ -206,18 +214,21 @@ const CommunityPostCard = ({ navigation }) => {
           {COMMUNITY_POSTS.map(post => (
             <View key={post.id} style={styles.cardWrapper}>
               <View style={styles.card}>
-                {/* Header of the Post */}
+                {/* Post Header */}
+
                 <View style={styles.postHeader}>
                   <View style={styles.userInfo}>
                     <Image
                       source={{ uri: post.avatar }}
                       style={styles.avatar}
                     />
+
                     <View style={styles.userTextContainer}>
                       <View style={styles.nameRow}>
                         <Text style={[typography.heading, styles.userName]}>
                           {post.name}
                         </Text>
+
                         <MaterialIcons
                           name="verified"
                           size={16}
@@ -225,6 +236,7 @@ const CommunityPostCard = ({ navigation }) => {
                           style={styles.verifiedIcon}
                         />
                       </View>
+
                       <Text style={[typography.caption, styles.postTime]}>
                         {post.time}
                       </Text>
@@ -232,11 +244,13 @@ const CommunityPostCard = ({ navigation }) => {
                   </View>
                 </View>
 
-                {/* Post Description Text */}
+                {/* Post Description */}
+
                 <View style={styles.contentContainer}>
                   <Text style={[typography.body, styles.postText]}>
                     {post.text} <Text>{post.emojis}</Text>
                   </Text>
+
                   <View style={styles.hashtagRow}>
                     {post.hashtags.map((tag, index) => (
                       <Text key={index} style={styles.hashtag}>
@@ -246,8 +260,9 @@ const CommunityPostCard = ({ navigation }) => {
                   </View>
                 </View>
 
-                {/* Dynamic Image Container (Supports 1 or Multiple Images) */}
-                {post.images && post.images.length > 0 && (
+                {/* Post Images */}
+
+                {post.images?.length > 0 && (
                   <View
                     style={
                       post.images.length === 1
@@ -256,20 +271,21 @@ const CommunityPostCard = ({ navigation }) => {
                     }
                   >
                     {post.images.length === 1 ? (
-                      <>
+                      <View style={styles.imageContainer}>
                         <Image
                           source={{ uri: post.images[0] }}
                           style={styles.postImage}
                           resizeMode="cover"
                         />
-                        <TouchableOpacity style={styles.expandButton}>
+
+                        <View style={styles.expandButton}>
                           <MaterialIcons
                             name="fullscreen"
                             size={20}
                             color={colors.white}
                           />
-                        </TouchableOpacity>
-                      </>
+                        </View>
+                      </View>
                     ) : (
                       post.images.map((imgUri, imgIndex) => (
                         <View
@@ -291,44 +307,53 @@ const CommunityPostCard = ({ navigation }) => {
                   </View>
                 )}
 
-                {/* Post Footer Actions */}
+                {/* Post Footer: Views, Likes, Share */}
+
                 <View style={styles.postFooter}>
                   <View style={styles.footerLeft}>
+                    {/* Views */}
+
                     <View style={styles.statItem}>
                       <Ionicons
                         name="eye-outline"
-                        size={16}
+                        size={17}
                         color={colors.textSecondary}
                       />
-                      <Text style={[typography.caption, styles.statText]}>
-                        {post.views}
-                      </Text>
+
+                      <Text style={styles.statText}>{post.views}</Text>
                     </View>
 
-                    <View style={styles.statItem}>
-                      <Ionicons name="heart" size={16} color={colors.danger} />
-                      <Text style={[typography.caption, styles.statText]}>
-                        {post.likes}
-                      </Text>
-                    </View>
+                    {/* Likes */}
 
                     <View style={styles.statItem}>
-                      <Ionicons
-                        name="chatbubble"
-                        size={16}
-                        color={colors.success}
-                      />
-                      <Text style={[typography.caption, styles.statText]}>
-                        {post.comments}
-                      </Text>
+                      <Ionicons name="heart" size={17} color={colors.danger} />
+
+                      <Text style={styles.statText}>{post.likes}</Text>
                     </View>
                   </View>
+
+                  {/* Share Button */}
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={styles.shareButton}
+                    onPress={() => handleShare(post)}
+                  >
+                    <Ionicons
+                      name="share-social-outline"
+                      size={19}
+                      color={colors.success}
+                    />
+
+                    <Text style={styles.shareText}>Share</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
           ))}
         </ScrollView>
       </View>
+
       <BottomNav active="CommunityPost" onPress={handleTabPress} />
     </View>
   );
@@ -339,6 +364,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F1F6F3',
   },
+
   body: {
     flex: 1,
     marginTop: -22,
@@ -347,16 +373,19 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     overflow: 'hidden',
   },
+
   scrollContent: {
     paddingBottom: 24,
     paddingTop: 12,
   },
+
   cardWrapper: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   card: {
     width: '100%',
     maxWidth: 450,
@@ -371,60 +400,73 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.neutral.border,
   },
+
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.inputBorder,
   },
+
   userTextContainer: {
     marginLeft: 10,
   },
+
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   userName: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
   },
+
   verifiedIcon: {
     marginLeft: 4,
   },
+
   postTime: {
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 1,
   },
+
   contentContainer: {
     marginBottom: 12,
   },
+
   postText: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
   },
+
   hashtagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 4,
   },
+
   hashtag: {
     fontSize: 14,
     color: colors.info,
     fontWeight: '600',
   },
+
   imageContainer: {
     width: '100%',
     height: 220,
@@ -433,10 +475,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 14,
   },
+
   postImage: {
     width: '100%',
     height: '100%',
   },
+
   imageGridContainer: {
     width: '100%',
     flexDirection: 'row',
@@ -446,22 +490,26 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 14,
   },
+
   halfImageWrapper: {
     width: '48.8%',
     height: 180,
     borderRadius: 12,
     overflow: 'hidden',
   },
+
   gridImageWrapper: {
     width: '31.8%',
     height: 120,
     borderRadius: 10,
     overflow: 'hidden',
   },
+
   gridImage: {
     width: '100%',
     height: '100%',
   },
+
   expandButton: {
     position: 'absolute',
     top: 10,
@@ -470,28 +518,49 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 8,
   },
+
   postFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.neutral.border,
   },
+
   footerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 16,
   },
+
   statText: {
     marginLeft: 4,
     fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '500',
+  },
+
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#E8F5EC',
+    gap: 6,
+  },
+
+  shareText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.success,
   },
 });
 

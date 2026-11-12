@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 
 import {
   View,
@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
+  Platform,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 import colors from '../../../themes/colors';
@@ -19,99 +22,212 @@ import { FontFamily, FontSize } from '../../../themes/typography';
 import BottomNav from '../../../components/BottomNav/BottomNav';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
+import {
+  Body,
+  Label,
+  SearchField,
+  Dropdown,
+  GreenButton,
+  GrayButton,
+} from '../../../components/Formparts';
+
+// Import API
+import { getCommunicationsByType } from '../../../api/communication';
 
 // ---------------------------------------------------------------
-// Dummy data — replace with your API response
+// Constants
 // ---------------------------------------------------------------
 const TABS = ['Inbound', 'Outbound', 'Draft'];
-const SEND_OPTIONS = [
-  'All',
-  'Office Bearer',
-  'Executive Member',
-  'Local Secretary',
+const DEFAULT_LETTERS = [];
+
+const SEND_OPTIONS = ['All', 'Sent', 'Received'];
+
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
-const LETTERS = [
-  {
-    id: '1',
-    box: 'Inbound',
-    from: 'ab-rec',
-    to: 'ob ex',
-    date: '18 Jun 2026',
-    tagged: ['0027 - Mr. Syed Mazhar Haider Zaidi, Aligarh (Executive Member)'],
-    note: 'dssd',
-  },
-  {
-    id: '2',
-    box: 'Inbound',
-    from: 'ghfghftf',
-    to: 'gffgh',
-    date: '17 Jun 2026',
-    tagged: [
-      'President - Mr. Ehsaan Imam Abidi, Lucknow (Office Bearer)',
-      '0035 - Maulana Syed Zahid Husain, Aligarh (Executive Member)',
-      '0027 - Mr. Imran Raza Abidi, Basti (Local Secretary)',
-    ],
-    note: 'gfhgfhg',
-  },
-  {
-    id: '3',
-    box: 'Outbound',
-    from: 'admin',
-    to: 'all office bearer',
-    date: '12 Jun 2026',
-    tagged: ['President - Mr. Ehsaan Imam Abidi, Lucknow (Office Bearer)'],
-    note: 'Meeting notice',
-  },
-  {
-    id: '4',
-    box: 'Draft',
-    from: 'admin',
-    to: 'executive members',
-    date: '10 Jun 2026',
-    tagged: ['0035 - Maulana Syed Zahid Husain, Aligarh (Executive Member)'],
-    note: 'Draft letter',
-  },
-];
+const formatDate = d =>
+  d
+    ? `${String(d.getDate()).padStart(2, '0')} ${
+        MONTHS[d.getMonth()]
+      } ${d.getFullYear()}`
+    : '';
+
+const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 // ---------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------
 const LetterRecordScreen = ({ navigation }) => {
   const [tab, setTab] = useState('Inbound');
-  const [send, setSend] = useState('All');
   const [search, setSearch] = useState('');
-  const [applied, setApplied] = useState({ send: 'All', search: '' });
-  const [sendOpen, setSendOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const data = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
+  // Applied Filters
+  const [applied, setApplied] = useState({
+    search: '',
+    send: 'All',
+    fromDate: null,
+    toDate: null,
+  });
 
-    return LETTERS.filter(l => {
-      if (l.box !== tab) return false;
+  // Draft Filters in Modal
+  const [draftSend, setDraftSend] = useState('All');
+  const [draftFromDate, setDraftFromDate] = useState(null);
+  const [draftToDate, setDraftToDate] = useState(null);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
 
-      if (
-        applied.send !== 'All' &&
-        !l.tagged.some(t => t.includes(applied.send))
-      ) {
-        return false;
-      }
+  // API state
+  const [loading, setLoading] = useState(true);
+  const [letters, setLetters] = useState(DEFAULT_LETTERS);
+  const [selectedId, setSelectedId] = useState(null);
 
-      if (
-        q &&
-        !l.from.toLowerCase().includes(q) &&
-        !l.to.toLowerCase().includes(q) &&
-        !l.note.toLowerCase().includes(q) &&
-        !l.tagged.some(t => t.toLowerCase().includes(q))
-      ) {
-        return false;
-      }
+  // Debounce timer for search
+  const searchTimerRef = useRef(null);
 
-      return true;
-    });
+  // Fetch communications on mount and when tab/filter changes
+  useEffect(() => {
+    fetchLetters();
   }, [tab, applied]);
 
-  const handleApply = () => setApplied({ send, search });
+  const fetchLetters = async () => {
+    setLoading(true);
+    try {
+      const tabType = tab.toLowerCase();
+      // Convert send filter to API format ('All' -> null, 'Sent' -> 'sent', 'Received' -> 'received')
+      const sendFilter =
+        applied.send === 'All'
+          ? null
+          : applied.send.toLowerCase();
+      
+      const response = await getCommunicationsByType(tabType, sendFilter, 1, 100);
+
+      if (response.success && response.communications) {
+        setLetters(response.communications);
+        if (response.communications.length > 0) {
+          setSelectedId(response.communications[0].id);
+        }
+      } else {
+        console.warn('Failed to fetch letters:', response.message);
+        setLetters(DEFAULT_LETTERS);
+      }
+    } catch (error) {
+      console.error('Error fetching letters:', error);
+      setLetters(DEFAULT_LETTERS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openFilter = () => {
+    setDraftSend(applied.send);
+    setDraftFromDate(applied.fromDate);
+    setDraftToDate(applied.toDate);
+    setFilterOpen(true);
+  };
+
+  const applyFilter = () => {
+    setApplied(prev => ({
+      ...prev,
+      send: draftSend,
+      fromDate: draftFromDate,
+      toDate: draftToDate,
+    }));
+    setFilterOpen(false);
+  };
+
+  const handleSearchChange = text => {
+    setSearch(text);
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    searchTimerRef.current = setTimeout(() => {
+      setApplied(prev => ({ ...prev, search: text }));
+    }, 500);
+  };
+
+  const handleReset = () => {
+    setDraftSend('All');
+    setDraftFromDate(null);
+    setDraftToDate(null);
+    setSearch('');
+    setApplied({
+      search: '',
+      send: 'All',
+      fromDate: null,
+      toDate: null,
+    });
+  };
+
+  const handleFromDateChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setShowFromPicker(false);
+    }
+    if (selectedDate) {
+      setDraftFromDate(startOfDay(selectedDate));
+    }
+  };
+
+  const handleToDateChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setShowToPicker(false);
+    }
+    if (selectedDate) {
+      setDraftToDate(startOfDay(selectedDate));
+    }
+  };
+
+  // Filtering logic
+  const data = useMemo(() => {
+    let filtered = [...letters];
+
+    // Filter by send type (sent/received)
+    if (applied.send !== 'All') {
+      // This would need backend filtering since we don't have send info in the response
+      // For now, keep all since backend handles it
+    }
+
+    // Filter by date range
+    if (applied.fromDate || applied.toDate) {
+      filtered = filtered.filter(l => {
+        const letterDate = startOfDay(new Date(l.createdAt));
+        if (applied.fromDate && letterDate < startOfDay(applied.fromDate))
+          return false;
+        if (applied.toDate && letterDate > startOfDay(applied.toDate))
+          return false;
+        return true;
+      });
+    }
+
+    // Filter by search
+    const q = applied.search.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(l => {
+        return (
+          l.from.toLowerCase().includes(q) ||
+          l.to.toLowerCase().includes(q) ||
+          l.description.toLowerCase().includes(q) ||
+          l.recipients?.some(r => r.name?.toLowerCase().includes(q))
+        );
+      });
+    }
+
+    return filtered;
+  }, [applied, letters]);
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
@@ -127,30 +243,34 @@ const LetterRecordScreen = ({ navigation }) => {
 
       <View style={styles.cardBody}>
         <View style={styles.fromTo}>
-          <Text style={styles.fromToText}>From: {item.from}</Text>
+          <Text style={styles.fromToText}>{item.from}</Text>
           <Icon
             name="arrow-right"
             size={16}
             color="#374151"
             style={styles.arrow}
           />
-          <Text style={styles.fromToText}>To: {item.to}</Text>
+          <Text style={styles.fromToText}>{item.to}</Text>
         </View>
 
         <View style={styles.dateRow}>
           <Icon name="calendar-month-outline" size={17} color="#6B7280" />
-          <Text style={styles.dateText}>{item.date}</Text>
+          <Text style={styles.dateText}>
+            {formatDate(new Date(item.createdAt))}
+          </Text>
         </View>
 
         <Text style={styles.taggedLabel}>Tagged:</Text>
 
-        {item.tagged.map(t => (
-          <View key={t} style={styles.chip}>
-            <Text style={styles.chipText}>{t}</Text>
+        {item.recipients?.map(r => (
+          <View key={r.memberId} style={styles.chip}>
+            <Text style={styles.chipText}>
+              {r.name} ({r.memberType})
+            </Text>
           </View>
         ))}
 
-        <Text style={styles.note}>{item.note}</Text>
+        <Text style={styles.note}>{item.description}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -162,134 +282,197 @@ const LetterRecordScreen = ({ navigation }) => {
           navigation={navigation}
           title="Letter Record"
           onBack={() => navigation && navigation.goBack()}
-          //   rightIcon="plus"
-          //   rightVariant="solid"
-          //   onRightPress={() =>
-          //     navigation && navigation.navigate('ComposeLetter')
-          //   }
         />
 
         <View style={styles.body}>
-          {/* Tabs */}
-          <View style={styles.tabs}>
-            {TABS.map(t => {
-              const active = t === tab;
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading letters...</Text>
+            </View>
+          ) : (
+            <Body>
+              <FlatList
+                data={data}
+                keyExtractor={item => item.id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                ListHeaderComponent={
+                  <View>
+                    {/* Tabs */}
+                    <View style={styles.tabs}>
+                      {TABS.map(t => {
+                        const active = t === tab;
 
-              return (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.tab, active && styles.tabActive]}
-                  activeOpacity={0.85}
-                  onPress={() => setTab(t)}
-                >
-                  <Text
-                    style={[styles.tabText, active && styles.tabTextActive]}
-                  >
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                        return (
+                          <TouchableOpacity
+                            key={t}
+                            style={[styles.tab, active && styles.tabActive]}
+                            activeOpacity={0.85}
+                            onPress={() => setTab(t)}
+                          >
+                            <Text
+                              style={[
+                                styles.tabText,
+                                active && styles.tabTextActive,
+                              ]}
+                            >
+                              {t}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
 
-          {/* Filters */}
-          <View style={styles.filterRow}>
-            <View style={styles.sendCol}>
-              <Text style={styles.filterLabel}>Send</Text>
-              <TouchableOpacity
-                style={styles.select}
-                activeOpacity={0.8}
-                onPress={() => setSendOpen(true)}
-              >
-                <Text style={styles.selectText} numberOfLines={1}>
-                  {send}
-                </Text>
-                <Icon name="chevron-down" size={22} color="#111827" />
+                    {/* Search & Filter Row */}
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search letters..."
+                          value={search}
+                          onChangeText={handleSearchChange}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                        {(applied.send !== 'All' ||
+                          applied.fromDate ||
+                          applied.toDate) && (
+                          <View style={styles.filterBadgeDot} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Icon name="email-off-outline" size={40} color="#9CA3AF" />
+                    <Text style={styles.emptyTitle}>No letters found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try adjusting your search or filters.
+                    </Text>
+                  </View>
+                }
+              />
+            </Body>
+          )}
+        </View>
+
+        <BottomNav active="Communication" onPress={() => {}} />
+      </View>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={filterOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => setFilterOpen(false)}
+        >
+          <View
+            style={styles.filterSheet}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.filterTitle}>Filter Letters</Text>
+              <TouchableOpacity onPress={() => setFilterOpen(false)}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.searchCol}>
-              <Text style={styles.filterLabel}>Search</Text>
-              <View style={styles.searchBox}>
-                <Icon name="magnify" size={22} color="#6B7280" />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search..."
-                  placeholderTextColor={colors.placeHolderColor}
-                  value={search}
-                  onChangeText={setSearch}
-                  autoCorrect={false}
-                />
-              </View>
+            <Label text="Send" />
+            <Dropdown
+              value={draftSend}
+              options={SEND_OPTIONS}
+              onSelect={setDraftSend}
+              style={styles.modalGap}
+            />
+
+            {/* <Label text="From Date" />
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowFromPicker(true)}
+            >
+              <Icon name="calendar" size={16} color={colors.primary} />
+              <Text style={styles.dateButtonText}>
+                {draftFromDate ? formatDate(draftFromDate) : 'Select date'}
+              </Text>
+              {draftFromDate && (
+                <TouchableOpacity
+                  onPress={() => setDraftFromDate(null)}
+                  style={styles.clearDateBtn}
+                >
+                  <Icon name="close" size={14} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            {showFromPicker && (
+              <DateTimePicker
+                value={draftFromDate || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleFromDateChange}
+              />
+            )}
+
+            <Label text="To Date" />
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowToPicker(true)}
+            >
+              <Icon name="calendar" size={16} color={colors.primary} />
+              <Text style={styles.dateButtonText}>
+                {draftToDate ? formatDate(draftToDate) : 'Select date'}
+              </Text>
+              {draftToDate && (
+                <TouchableOpacity
+                  onPress={() => setDraftToDate(null)}
+                  style={styles.clearDateBtn}
+                >
+                  <Icon name="close" size={14} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            {showToPicker && (
+              <DateTimePicker
+                value={draftToDate || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleToDateChange}
+              />
+            )} */}
+
+            <View style={styles.actionRow}>
+              <GreenButton
+                title="Apply"
+                onPress={applyFilter}
+                style={styles.applyBtn}
+              />
+              <GrayButton
+                title="Reset"
+                onPress={handleReset}
+                style={styles.resetBtn}
+              />
             </View>
           </View>
-
-          <TouchableOpacity
-            style={styles.applyButton}
-            activeOpacity={0.85}
-            onPress={handleApply}
-          >
-            <Text style={styles.applyText}>Apply</Text>
-          </TouchableOpacity>
-
-          {/* List */}
-          <FlatList
-            data={data}
-            keyExtractor={item => item.id}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Icon name="email-off-outline" size={46} color="#9CA3AF" />
-                <Text style={styles.emptyText}>No letters found</Text>
-              </View>
-            }
-          />
-        </View>
-
-        {/* Send Picker */}
-        <Modal
-          visible={sendOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSendOpen(false)}
-        >
-          <TouchableOpacity
-            style={styles.overlay}
-            activeOpacity={1}
-            onPress={() => setSendOpen(false)}
-          >
-            <View style={styles.sheet}>
-              {SEND_OPTIONS.map(o => (
-                <TouchableOpacity
-                  key={o}
-                  style={[
-                    styles.sheetItem,
-                    o === send && styles.sheetItemActive,
-                  ]}
-                  onPress={() => {
-                    setSend(o);
-                    setSendOpen(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.sheetText,
-                      o === send && styles.sheetTextActive,
-                    ]}
-                  >
-                    {o}
-                  </Text>
-                  {o === send && (
-                    <Icon name="check" size={18} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      </View>
+        </TouchableOpacity>
+      </Modal>
     </AppLayout>
   );
 };
@@ -299,6 +482,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F1F6F3',
   },
+
   body: {
     flex: 1,
     marginTop: 0,
@@ -308,15 +492,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.semiBold,
+    color: colors.primary,
+  },
+
   // Tabs
   tabs: {
     flexDirection: 'row',
-    marginHorizontal: wp('4%'),
+    marginHorizontal: wp('3.5%'),
     backgroundColor: '#F7FAF8',
     borderWidth: 1,
     borderColor: '#E8EEEA',
     borderRadius: 14,
-    marginTop: 5,
+    marginTop: 25,
     padding: 4,
   },
 
@@ -343,96 +541,44 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semiBold,
   },
 
-  // Filters
-  filterRow: {
+  searchFilterContainer: {
     flexDirection: 'row',
-    marginHorizontal: wp('4%'),
+    alignItems: 'center',
+    marginBottom: 12,
     marginTop: 16,
+    marginHorizontal: wp('3.5%'),
   },
 
-  sendCol: {
-    flex: 0.8,
-    marginRight: 12,
-  },
-
-  searchCol: {
-    flex: 1.2,
-  },
-
-  filterLabel: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
-    color: '#1F2937',
-    marginBottom: 6,
-  },
-
-  select: {
-    height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FBFCFB',
-    borderWidth: 1,
-    borderColor: '#E2E8E4',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-  },
-
-  selectText: {
+  searchFlex: {
     flex: 1,
-    fontSize: FontSize.md,
-    fontFamily: FontFamily.semiBold,
-    color: '#111827',
-    textAlign: 'center',
+    marginRight: 8,
   },
 
-  searchBox: {
-    height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FBFCFB',
-    borderWidth: 1,
-    borderColor: '#E2E8E4',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-  },
-
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    marginLeft: 8,
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.regular,
-    color: colors.SecondTitleColor,
-    paddingVertical: 0,
-  },
-
-  applyButton: {
+  filterButton: {
+    width: 48,
     height: 48,
-    marginHorizontal: wp('4%'),
-    marginTop: 14,
-    borderRadius: 10,
-    backgroundColor: '#2E8B3E',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    position: 'relative',
   },
 
-  applyText: {
-    fontSize: FontSize.md,
-    fontFamily: FontFamily.bold,
-    color: colors.white,
+  filterBadgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
 
   // List
   listContent: {
-    paddingHorizontal: wp('4%'),
-    paddingTop: 18,
-    paddingBottom: 24,
+    paddingHorizontal: wp('3.5%'),
+    paddingTop: 8,
+    paddingBottom: 20,
   },
 
   card: {
@@ -492,21 +638,21 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     fontFamily: FontFamily.medium,
     color: '#1F2937',
-    marginTop: 14,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 4,
   },
 
   chip: {
     alignSelf: 'flex-start',
     backgroundColor: '#DDF1E4',
     borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    marginBottom: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 4,
   },
 
   chipText: {
-    fontSize: FontSize.base,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: '#2E7D32',
   },
@@ -518,55 +664,97 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  empty: {
+  emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 50,
+    justifyContent: 'center',
+    paddingVertical: 40,
   },
 
-  emptyText: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
+  emptyTitle: {
+    fontSize: FontSize.lg,
+    fontFamily: FontFamily.bold,
+    color: '#1F2937',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+
+  emptySubtitle: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
     color: '#6B7280',
-    marginTop: 8,
+    textAlign: 'center',
   },
 
-  // Picker
+  // Modal
   overlay: {
     flex: 1,
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 
-  sheet: {
-    width: wp('70%'),
+  filterSheet: {
     backgroundColor: colors.white,
-    borderRadius: 16,
-    paddingVertical: 8,
-    elevation: 8,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    paddingBottom: 30,
   },
 
-  sheetItem: {
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
+  filterTitle: {
+    fontSize: FontSize.lg,
+    fontFamily: FontFamily.bold,
+    color: colors.TitleColor,
+  },
+
+  modalGap: {
+    marginBottom: 12,
+  },
+
+  dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 13,
+    height: 48,
+    backgroundColor: '#F7FAF8',
+    borderWidth: 1,
+    borderColor: '#E2E8E4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
 
-  sheetItemActive: {
-    backgroundColor: colors.primaryLight,
+  dateButtonText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+    color: colors.TitleColor,
   },
 
-  sheetText: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
-    color: colors.SecondTitleColor,
+  clearDateBtn: {
+    padding: 4,
   },
 
-  sheetTextActive: {
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+
+  applyBtn: {
+    flex: 1,
+    marginRight: 8,
+    height: 48,
+  },
+
+  resetBtn: {
+    flex: 1,
+    height: 48,
   },
 });
 

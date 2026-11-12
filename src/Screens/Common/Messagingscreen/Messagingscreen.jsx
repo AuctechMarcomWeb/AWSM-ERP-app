@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 import {
   View,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -19,103 +20,77 @@ import BottomNav from '../../../components/BottomNav/BottomNav';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
 
+// Import API function for Messagingscreen
+import { getMessagingAll } from '../../../api/communication';
+
 // ---------------------------------------------------------------
-// Dummy data — replace with your API response
+// Tabs Configuration
 // ---------------------------------------------------------------
 const TABS = [
-  { key: 'All', label: 'All', icon: 'format-list-bulleted' },
-  { key: 'Inbound', label: 'Inbound', icon: 'email-outline' },
-  { key: 'Outbound', label: 'Outbound', icon: 'send-outline' },
-];
-
-const MESSAGES = [
-  {
-    id: '1',
-    box: 'Inbound',
-    title: 'West and Fowler',
-    preview: 'he main aim of data models is to support...',
-    date: '07 Jul',
-    priority: 'Normal',
-  },
-  {
-    id: '2',
-    box: 'Inbound',
-    title: 'Re: hard disk drive',
-    preview: 'Okay Sir, I will check this.',
-    date: '07 Jul',
-    priority: 'Normal',
-  },
-  {
-    id: '3',
-    box: 'Outbound',
-    title: 'Re: admin',
-    preview: 'drdsdsds',
-    date: '07 Jul',
-    priority: 'Normal',
-  },
-  {
-    id: '4',
-    box: 'Inbound',
-    title: 'Re: Data model',
-    preview: 'fhfghfghgtnff',
-    date: '07 Jul',
-    priority: 'Normal',
-  },
-  {
-    id: '5',
-    box: 'Outbound',
-    title: 'Re: admin',
-    preview: 'Okay Sir, I will check this.',
-    date: '07 Jul',
-    priority: 'Normal',
-  },
-  {
-    id: '6',
-    box: 'Inbound',
-    title: 'admin',
-    preview: 'he main aim of data models is to support...',
-    date: '03 Jul',
-    priority: 'Normal',
-  },
-  {
-    id: '7',
-    box: 'Outbound',
-    title: 'Re: Normalization-selc multip all filed',
-    preview: '',
-    date: '30 Jun',
-    priority: 'Urgent',
-  },
+  { key: 'All', label: 'All', icon: 'format-list-bulleted', type: null },
+  { key: 'Inbound', label: 'Inbound', icon: 'email-outline', type: 'received' },
+  { key: 'Outbound', label: 'Outbound', icon: 'send-outline', type: 'sent' },
 ];
 
 const MessagingScreen = ({ navigation }) => {
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [messages, setMessages] = useState([]);
+
+  // Fetch messages on mount and when tab changes
+  useEffect(() => {
+    fetchMessages();
+  }, [tab]);
+
+  const fetchMessages = async () => {
+    setLoading(true);
+    try {
+      const tabConfig = TABS.find(t => t.key === tab);
+      const messageType = tabConfig?.type; // null for 'All', 'received' for 'Inbound', 'sent' for 'Outbound'
+
+      const response = await getMessagingAll(messageType, 1, 100);
+
+      if (response.success) {
+        setMessages(response.messages);
+      } else {
+        console.warn('Failed to fetch messages:', response.message);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const data = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return MESSAGES.filter(m => {
-      if (tab !== 'All' && m.box !== tab) return false;
-      if (
-        q &&
-        !m.title.toLowerCase().includes(q) &&
-        !m.preview.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [tab, search]);
+    return messages
+      .filter(m => {
+        if (
+          q &&
+          !m.title.toLowerCase().includes(q) &&
+          !m.preview.toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+        return true;
+      });
+  }, [tab, search, messages]);
 
   const renderItem = ({ item }) => {
     const urgent = item.priority === 'Urgent';
+    const isOutbound = item.type === 'outbound' || item.type === 'sent';
 
     return (
       <TouchableOpacity
         activeOpacity={0.8}
         style={styles.row}
         onPress={() =>
-          navigation && navigation.navigate('MessageDetail', { message: item })
+          navigation && navigation.navigate('MessageDetailsScreen', { message: item })
         }
       >
         <View style={styles.avatar}>
@@ -168,64 +143,73 @@ const MessagingScreen = ({ navigation }) => {
         />
 
         <View style={styles.body}>
-          {/* Tabs */}
-          <View style={styles.tabs}>
-            {TABS.map(t => {
-              const active = t.key === tab;
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading messages...</Text>
+            </View>
+          ) : (
+            <>
+              {/* Tabs */}
+              <View style={styles.tabs}>
+                {TABS.map(t => {
+                  const active = t.key === tab;
 
-              return (
-                <TouchableOpacity
-                  key={t.key}
-                  style={[styles.tab, active && styles.tabActive]}
-                  activeOpacity={0.85}
-                  onPress={() => setTab(t.key)}
-                >
-                  <Icon
-                    name={t.icon}
-                    size={20}
-                    color={active ? colors.white : '#1F2937'}
-                  />
-                  <Text
-                    style={[styles.tabText, active && styles.tabTextActive]}
-                  >
-                    {t.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Search */}
-          <View style={styles.searchBox}>
-            <Icon name="magnify" size={24} color="#4B5563" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search messages..."
-              placeholderTextColor={colors.placeHolderColor}
-              value={search}
-              onChangeText={setSearch}
-              autoCorrect={false}
-            />
-          </View>
-
-          <Text style={styles.countText}>
-            {tab.toUpperCase()} — {data.length} MESSAGES
-          </Text>
-
-          <FlatList
-            data={data}
-            keyExtractor={item => item.id}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Icon name="message-off-outline" size={46} color="#9CA3AF" />
-                <Text style={styles.emptyText}>No messages found</Text>
+                  return (
+                    <TouchableOpacity
+                      key={t.key}
+                      style={[styles.tab, active && styles.tabActive]}
+                      activeOpacity={0.85}
+                      onPress={() => setTab(t.key)}
+                    >
+                      <Icon
+                        name={t.icon}
+                        size={20}
+                        color={active ? colors.white : '#1F2937'}
+                      />
+                      <Text
+                        style={[styles.tabText, active && styles.tabTextActive]}
+                      >
+                        {t.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            }
-          />
+
+              {/* Search */}
+              <View style={styles.searchBox}>
+                <Icon name="magnify" size={24} color="#4B5563" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search messages..."
+                  placeholderTextColor={colors.placeHolderColor}
+                  value={search}
+                  onChangeText={setSearch}
+                  autoCorrect={false}
+                />
+              </View>
+
+              <Text style={styles.countText}>
+                {tab.toUpperCase()} — {data.length} MESSAGES
+              </Text>
+
+              <FlatList
+                data={data}
+                keyExtractor={item => item.id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                ListEmptyComponent={
+                  <View style={styles.empty}>
+                    <Icon name="message-off-outline" size={46} color="#9CA3AF" />
+                    <Text style={styles.emptyText}>No messages found</Text>
+                  </View>
+                }
+              />
+            </>
+          )}
         </View>
       </View>
     </AppLayout>
@@ -244,6 +228,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: 'hidden',
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.semiBold,
+    color: colors.primary,
   },
 
   // Tabs

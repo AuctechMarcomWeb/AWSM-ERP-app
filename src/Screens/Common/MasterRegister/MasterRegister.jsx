@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 
 import {
   View,
@@ -119,21 +119,49 @@ const MasterRegister = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [allMembers, setAllMembers] = useState(DEFAULT_MEMBERS);
   const [selectedId, setSelectedId] = useState(null);
+  
+  // Debounce timer for search
+  const searchTimerRef = useRef(null);
 
-  // Fetch master register data on mount
+  // Fetch master register data on mount or when filters change
   useEffect(() => {
-    fetchMasterRegister();
-  }, []);
+    fetchMasterRegisterWithFilters();
+  }, [applied]);
 
-  const fetchMasterRegister = async () => {
+  const fetchMasterRegisterWithFilters = async () => {
     setLoading(true);
     try {
-      const response = await getMasterRegister(1, 100, '', false);
+      // Convert dates to YYYY-MM-DD format for API
+      const formatDateForAPI = (date) => {
+        if (!date) return null;
+        if (date instanceof Date) {
+          return date.toISOString().split('T')[0];
+        }
+        return date;
+      };
+
+      // Call API with filters
+      const response = await getMembersFiltered(
+        applied.type,
+        applied.fromDate ? formatDateForAPI(applied.fromDate) : null,
+        applied.toDate ? formatDateForAPI(applied.toDate) : null,
+        1,
+        100,
+      );
 
       if (response.success && response.memberships) {
-        setAllMembers(response.memberships);
-        if (response.memberships.length > 0) {
-          setSelectedId(response.memberships[0].id);
+        // Apply search filter on the results
+        let filtered = response.memberships;
+        const q = applied.search.trim().toLowerCase();
+        if (q) {
+          filtered = filtered.filter(m => {
+            return m.name.toLowerCase().includes(q) || m.wmrn.includes(q);
+          });
+        }
+
+        setAllMembers(filtered);
+        if (filtered.length > 0) {
+          setSelectedId(filtered[0].id);
         }
       } else {
         console.warn('Failed to fetch members:', response.message);
@@ -162,6 +190,20 @@ const MasterRegister = ({ navigation }) => {
       toDate: draftToDate,
     }));
     setFilterOpen(false);
+  };
+
+  const handleSearchChange = (text) => {
+    setSearch(text);
+    
+    // Clear previous timer
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    
+    // Set new timer - apply search after 500ms
+    searchTimerRef.current = setTimeout(() => {
+      setApplied(prev => ({ ...prev, search: text }));
+    }, 500);
   };
 
   const handleReset = () => {
@@ -195,26 +237,11 @@ const MasterRegister = ({ navigation }) => {
     }
   };
 
-  // Combined filtering: type + date range + search
+  // Only search filtering on UI side - type + date filters come from backend
   const data = useMemo(() => {
     let filtered = [...allMembers];
 
-    // Filter by type
-    if (applied.type !== 'All Types') {
-      filtered = filtered.filter(m => m.type === applied.type);
-    }
-
-    // Filter by date range
-    if (applied.fromDate || applied.toDate) {
-      filtered = filtered.filter(m => {
-        const memberDate = startOfDay(new Date(m.date));
-        if (applied.fromDate && memberDate < startOfDay(applied.fromDate)) return false;
-        if (applied.toDate && memberDate > startOfDay(applied.toDate)) return false;
-        return true;
-      });
-    }
-
-    // Filter by search
+    // Search filtering only
     const q = applied.search.trim().toLowerCase();
     if (q) {
       filtered = filtered.filter(m => {
@@ -223,7 +250,7 @@ const MasterRegister = ({ navigation }) => {
     }
 
     return filtered;
-  }, [applied, allMembers]);
+  }, [applied.search, allMembers]);
 
   const openMember = member => {
     setSelectedId(member.id);
@@ -300,10 +327,7 @@ const MasterRegister = ({ navigation }) => {
                         <SearchField
                           placeholder="Search name, WMRN..."
                           value={search}
-                          onChangeText={text => {
-                            setSearch(text);
-                            setApplied(prev => ({ ...prev, search: text }));
-                          }}
+                          onChangeText={handleSearchChange}
                         />
                       </View>
 
@@ -317,8 +341,13 @@ const MasterRegister = ({ navigation }) => {
                           size={22}
                           color={colors.white}
                         />
+                        {(applied.type !== 'All Types' || applied.fromDate || applied.toDate) && (
+                          <View style={styles.filterBadgeDot} />
+                        )}
                       </TouchableOpacity>
                     </View>
+
+
                   </View>
                 }
                 ListEmptyComponent={
@@ -504,6 +533,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
 
   // List

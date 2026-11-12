@@ -86,6 +86,8 @@ import ScholarshipDateScreen from '../Screens/Master/ScholarshipDate/Scholarship
 import AddScholarshipDateScreen from '../Screens/Master/ScholarshipDate/AddScholarshipDateScreen';
 import ExpenseScreen from '../Screens/Master/Expense/ExpenseMasterScreen';
 import AddExpenseScreen from '../Screens/Master/Expense/AddExpenseScreen';
+import MessageDetailsScreen from '../Screens/Common/Messagingscreen/MessageDetailsScreen';
+
 
 const Drawer = createDrawerNavigator();
 
@@ -325,6 +327,19 @@ const AuthNavigation = () => {
           ),
         }}
       />
+  <Drawer.Screen
+        name="MessageDetailsScreen"
+        component={MessageDetailsScreen}
+        options={{
+          title: 'MessageDetails Screen',
+          drawerIcon: ({ color }) => (
+            <Icon name="list" size={20} color={color} />
+          ),
+        }}
+      />
+
+
+      
            <Drawer.Screen
         name="UnderDevelopmentScreen"
         component={UnderDevelopmentScreen}

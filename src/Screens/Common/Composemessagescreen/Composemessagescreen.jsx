@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   View,
@@ -11,40 +11,32 @@ import {
   Platform,
   Alert,
   StyleSheet,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 import colors from '../../../themes/colors';
 import { FontFamily, FontSize } from '../../../themes/typography';
 
-import BottomNav from '../../../components/BottomNav/BottomNav';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
-const PRIORITIES = ['Normal', 'Urgent'];
-const TYPES = ['Outbound', 'Inbound'];
+import {
+  getExecutiveMembers,
+  getOfficeBearers,
+  getLocalSecretaries,
+  uploadImage,
+  sendMessage,
+} from '../../../api/communication';
 
-const RADIO_OPTIONS = [
-  {
-    key: 'all',
-    label: 'All Office Bearer, Executive Member & Local Secretary',
-  },
-  { key: 'office', label: 'All Office Bearer' },
-  { key: 'executive', label: 'All Executive Member' },
-  { key: 'local', label: 'All Local Secretary' },
-];
+const PRIORITIES = ['normal', 'urgent', 'critical'];
+const TYPES = ['outbound', 'inbound'];
 
-const CHECK_OPTIONS = [
-  { key: 'specificOffice', label: 'Specific Office Bearer' },
-  { key: 'specificExecutive', label: 'Specific Executive Member' },
-  { key: 'specificLocal', label: 'Specific Local Secretary' },
-];
-
-// ---------------------------------------------------------------
-// Dropdown (modal list)
-// ---------------------------------------------------------------
-const Dropdown = ({ value, placeholder, options, onSelect }) => {
+// Priority dropdown component
+const PriorityDropdown = ({ value, onSelect }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -54,11 +46,8 @@ const Dropdown = ({ value, placeholder, options, onSelect }) => {
         activeOpacity={0.8}
         onPress={() => setOpen(true)}
       >
-        <Text
-          style={value ? styles.selectText : styles.selectPlaceholder}
-          numberOfLines={1}
-        >
-          {value || placeholder}
+        <Text style={value ? styles.selectText : styles.selectPlaceholder}>
+          {value || 'Select priority'}
         </Text>
         <Icon name="chevron-down" size={22} color="#374151" />
       </TouchableOpacity>
@@ -75,31 +64,200 @@ const Dropdown = ({ value, placeholder, options, onSelect }) => {
           onPress={() => setOpen(false)}
         >
           <View style={styles.sheet}>
-            {options.map(o => (
+            {PRIORITIES.map(p => (
               <TouchableOpacity
-                key={o}
+                key={p}
                 style={[
                   styles.sheetItem,
-                  o === value && styles.sheetItemActive,
+                  value === p && styles.sheetItemActive,
                 ]}
                 onPress={() => {
-                  onSelect(o);
+                  onSelect(p);
                   setOpen(false);
                 }}
               >
                 <Text
                   style={[
                     styles.sheetText,
-                    o === value && styles.sheetTextActive,
+                    value === p && styles.sheetTextActive,
                   ]}
                 >
-                  {o}
+                  {p}
                 </Text>
-                {o === value && (
+                {value === p && (
                   <Icon name="check" size={18} color={colors.primary} />
                 )}
               </TouchableOpacity>
             ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+};
+
+// Type dropdown component
+const TypeDropdown = ({ value, onSelect }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.select}
+        activeOpacity={0.8}
+        onPress={() => setOpen(true)}
+      >
+        <Text style={value ? styles.selectText : styles.selectPlaceholder}>
+          {value || 'Select type'}
+        </Text>
+        <Icon name="chevron-down" size={22} color="#374151" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => setOpen(false)}
+        >
+          <View style={styles.sheet}>
+            {TYPES.map(t => (
+              <TouchableOpacity
+                key={t}
+                style={[
+                  styles.sheetItem,
+                  value === t && styles.sheetItemActive,
+                ]}
+                onPress={() => {
+                  onSelect(t);
+                  setOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.sheetText,
+                    value === t && styles.sheetTextActive,
+                  ]}
+                >
+                  {t}
+                </Text>
+                {value === t && (
+                  <Icon name="check" size={18} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+};
+
+const RADIO_OPTIONS = [
+  {
+    key: 'all',
+    label: 'All Office Bearer, Executive Member & Local Secretary',
+  },
+  { key: 'office', label: 'All Office Bearer' },
+  { key: 'executive', label: 'All Executive Member' },
+  { key: 'local', label: 'All Local Secretary' },
+];
+
+// ---------------------------------------------------------------
+// Dropdown Component
+// ---------------------------------------------------------------
+const Dropdown = ({ value, placeholder, options, onSelect, disabled }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredOptions = search.trim()
+    ? options.filter(o => o.name?.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  return (
+    <>
+      <TouchableOpacity
+        style={[styles.select, disabled && styles.selectDisabled]}
+        activeOpacity={0.8}
+        onPress={() => !disabled && setOpen(true)}
+        disabled={disabled}
+      >
+        <Text
+          style={value ? styles.selectText : styles.selectPlaceholder}
+          numberOfLines={1}
+        >
+          {value?.name || placeholder}
+        </Text>
+        <Icon name="chevron-down" size={22} color="#374151" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => setOpen(false)}
+        >
+          <View style={styles.sheet}>
+            {/* Search */}
+            <View style={styles.searchBox}>
+              <Icon name="magnify" size={20} color="#6B7280" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search..."
+                placeholderTextColor="#9CA3AF"
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+
+            {/* Options */}
+            <ScrollView
+              style={styles.optionsList}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredOptions.length === 0 ? (
+                <Text style={styles.noResults}>No results</Text>
+              ) : (
+                filteredOptions.map(o => (
+                  <TouchableOpacity
+                    key={o.id}
+                    style={[
+                      styles.sheetItem,
+                      value?.id === o.id && styles.sheetItemActive,
+                    ]}
+                    onPress={() => {
+                      onSelect(o);
+                      setOpen(false);
+                      setSearch('');
+                    }}
+                  >
+                    <View>
+                      <Text
+                        style={[
+                          styles.sheetText,
+                          value?.id === o.id && styles.sheetTextActive,
+                        ]}
+                      >
+                        {o.name}
+                      </Text>
+                      <Text style={styles.sheetSubText}>{o.memberType}</Text>
+                    </View>
+                    {value?.id === o.id && (
+                      <Icon name="check" size={18} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -113,12 +271,179 @@ const Dropdown = ({ value, placeholder, options, onSelect }) => {
 const ComposeMessageScreen = ({ navigation }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [fileName, setFileName] = useState('');
   const [priority, setPriority] = useState('');
-  const [type, setType] = useState('Outbound');
+  const [type, setType] = useState('outbound');
   const [target, setTarget] = useState('all');
   const [specific, setSpecific] = useState([]);
   const [sending, setSending] = useState(false);
+
+  // Recipients dropdown state
+  const [allRecipients, setAllRecipients] = useState([]);
+  const [recipientsByType, setRecipientsByType] = useState({
+    office: [],
+    executive: [],
+    local: [],
+  });
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
+
+  // Image state
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState('');
+
+  // Specific recipient selections
+  const [selectedOffice, setSelectedOffice] = useState(null);
+  const [selectedExecutive, setSelectedExecutive] = useState(null);
+  const [selectedLocal, setSelectedLocal] = useState(null);
+
+  // Fetch recipients on mount
+  useEffect(() => {
+    fetchRecipients();
+  }, []);
+
+  const fetchRecipients = async () => {
+    setLoadingRecipients(true);
+    try {
+      const [executiveResult, bearerResult, secretaryResult] =
+        await Promise.all([
+          getExecutiveMembers(),
+          getOfficeBearers(),
+          getLocalSecretaries(),
+        ]);
+
+      let allRec = [];
+      let byType = { office: [], executive: [], local: [] };
+
+      if (executiveResult.success) {
+        byType.executive = executiveResult.members;
+        allRec = [...allRec, ...executiveResult.members];
+      }
+      if (bearerResult.success) {
+        byType.office = bearerResult.bearers;
+        allRec = [...allRec, ...bearerResult.bearers];
+      }
+      if (secretaryResult.success) {
+        byType.local = secretaryResult.secretaries;
+        allRec = [...allRec, ...secretaryResult.secretaries];
+      }
+
+      setAllRecipients(allRec);
+      setRecipientsByType(byType);
+    } catch (error) {
+      console.error('Error fetching recipients:', error);
+      Alert.alert('Error', 'Failed to load recipients');
+    } finally {
+      setLoadingRecipients(false);
+    }
+  };
+
+  // Image upload handlers
+  const handleCameraLaunch = () => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: false,
+      cameraType: 'back',
+    };
+
+    launchCamera(options, response => {
+      if (response.didCancel) {
+        console.log('User cancelled camera');
+      } else if (response.errorCode) {
+        Alert.alert(
+          'Camera Error',
+          response.errorMessage || 'Failed to open camera',
+        );
+      } else if (response.assets && response.assets.length > 0) {
+        const asset = response.assets[0];
+        const imageFile = {
+          uri:
+            Platform.OS === 'android'
+              ? asset.uri
+              : asset.uri.replace('file://', ''),
+          type: asset.type || 'image/jpeg',
+          name: asset.fileName || `camera_${Date.now()}.jpg`,
+        };
+        setAttachedFile(imageFile);
+        uploadImageFile(imageFile);
+      }
+    });
+  };
+
+  const handleGalleryLaunch = () => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: false,
+      maxWidth: 1920,
+      maxHeight: 1080,
+    };
+
+    launchImageLibrary(options, response => {
+      if (response.didCancel) {
+        console.log('User cancelled gallery');
+      } else if (response.errorCode) {
+        Alert.alert(
+          'Gallery Error',
+          response.errorMessage || 'Failed to open gallery',
+        );
+      } else if (response.assets && response.assets.length > 0) {
+        const asset = response.assets[0];
+        const imageFile = {
+          uri:
+            Platform.OS === 'android'
+              ? asset.uri
+              : asset.uri.replace('file://', ''),
+          type: asset.type || 'image/jpeg',
+          name: asset.fileName || `gallery_${Date.now()}.jpg`,
+        };
+        setAttachedFile(imageFile);
+        uploadImageFile(imageFile);
+      }
+    });
+  };
+
+  const uploadImageFile = async imageFile => {
+    try {
+      setUploading(true);
+      console.log('📤 Starting image upload...');
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: imageFile.uri,
+        type: imageFile.type,
+        name: imageFile.name,
+      });
+
+      const uploadResult = await uploadImage(formData);
+      setUploading(false);
+
+      if (uploadResult.success) {
+        setUploadedUrl(uploadResult.imageUrl);
+        console.log('✅ Image uploaded:', uploadResult.imageUrl);
+      } else {
+        console.error('❌ Upload failed:', uploadResult.message);
+        Alert.alert('Upload Error', uploadResult.message);
+        setAttachedFile(null);
+      }
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      Alert.alert('Error', 'Failed to upload image');
+      setAttachedFile(null);
+    }
+  };
+
+  const handleAttachFile = () => {
+    Alert.alert('Attach Image', 'Choose image source', [
+      {
+        text: 'Camera',
+        onPress: () => handleCameraLaunch(),
+      },
+      {
+        text: 'Gallery',
+        onPress: () => handleGalleryLaunch(),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   const selectRadio = key => {
     setTarget(key);
@@ -130,15 +455,6 @@ const ComposeMessageScreen = ({ navigation }) => {
     setSpecific(prev =>
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key],
     );
-  };
-
-  const handleAttach = async () => {
-    // Plug in your picker here, e.g. react-native-document-picker:
-    // const res = await DocumentPicker.pickSingle({
-    //   type: [DocumentPicker.types.images, DocumentPicker.types.pdf, DocumentPicker.types.doc, DocumentPicker.types.docx],
-    // });
-    // setFileName(res.name);
-    Alert.alert('Attach file', 'Connect your file picker in handleAttach().');
   };
 
   const handleSend = async () => {
@@ -160,19 +476,105 @@ const ComposeMessageScreen = ({ navigation }) => {
     setSending(true);
 
     try {
-      // Connect your send-message API here.
-      console.log('Send message:', {
+      // Build recipients array
+      let recipientsArray = [];
+
+      if (target === 'all') {
+        recipientsArray = allRecipients.map(r => ({
+          recipientId: r.id,
+          recipientModel: r.memberType,
+        }));
+      } else if (target === 'office') {
+        recipientsArray = recipientsByType.office.map(r => ({
+          recipientId: r.id,
+          recipientModel: r.memberType,
+        }));
+      } else if (target === 'executive') {
+        recipientsArray = recipientsByType.executive.map(r => ({
+          recipientId: r.id,
+          recipientModel: r.memberType,
+        }));
+      } else if (target === 'local') {
+        recipientsArray = recipientsByType.local.map(r => ({
+          recipientId: r.id,
+          recipientModel: r.memberType,
+        }));
+      }
+
+      // Handle specific selections
+      if (specific.includes('specificOffice') && selectedOffice) {
+        recipientsArray.push({
+          recipientId: selectedOffice.id,
+          recipientModel: selectedOffice.memberType,
+        });
+      }
+      if (specific.includes('specificExecutive') && selectedExecutive) {
+        recipientsArray.push({
+          recipientId: selectedExecutive.id,
+          recipientModel: selectedExecutive.memberType,
+        });
+      }
+      if (specific.includes('specificLocal') && selectedLocal) {
+        recipientsArray.push({
+          recipientId: selectedLocal.id,
+          recipientModel: selectedLocal.memberType,
+        });
+      }
+
+      // Remove duplicates by recipientId
+      const uniqueRecipients = Array.from(
+        new Map(recipientsArray.map(r => [r.recipientId, r])).values(),
+      );
+
+      console.log('📨 Sending message...');
+      console.log('   - Title:', title);
+      console.log('   - Recipients:', uniqueRecipients.length);
+      console.log('   - Priority:', priority || 'normal');
+
+      // Call API to send message
+      const sendResult = await sendMessage({
         title,
         description,
-        fileName,
-        priority,
+        attachment: uploadedUrl, // Already uploaded URL
+        priority: priority || 'normal',
         type,
-        target,
-        specific,
+        recipientType: 'selected',
+        recipients: uniqueRecipients,
+        recipientRoles: [],
+        taggedUsers: [],
       });
 
-      navigation && navigation.goBack();
+      if (sendResult.success) {
+        console.log('✅ Message sent successfully!');
+        
+        // Reset form IMMEDIATELY (not waiting for alert dismiss)
+        setTitle('');
+        setDescription('');
+        setPriority('');
+        setType('outbound');
+        setTarget('all');
+        setSpecific([]);
+        setAttachedFile(null);
+        setUploadedUrl('');
+        setSelectedOffice(null);
+        setSelectedExecutive(null);
+        setSelectedLocal(null);
+        
+        // Show alert and navigate after user dismisses it
+        Alert.alert('Success', 'Message sent successfully!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation && navigation.goBack();
+            },
+          },
+        ]);
+      } else {
+        console.error('❌ Send failed:', sendResult.message_info);
+        Alert.alert('Error', sendResult.message_info);
+      }
     } catch (err) {
+      console.error('❌ Error in handleSend:', err);
       Alert.alert('Error', err.message || 'Failed to send message');
     } finally {
       setSending(false);
@@ -225,18 +627,52 @@ const ComposeMessageScreen = ({ navigation }) => {
               editable={!sending}
             />
 
-            {/* Attach */}
+            {/* Attach Image */}
             <TouchableOpacity
               style={styles.attach}
               activeOpacity={0.8}
-              onPress={handleAttach}
+              onPress={handleAttachFile}
+              disabled={uploading}
             >
-              <Icon name="upload-outline" size={22} color="#2E8B3E" />
-              <Text style={styles.attachText} numberOfLines={1}>
-                {fileName || 'Click to attach file'}
-              </Text>
-              {!fileName && (
-                <Text style={styles.attachHint}>JPG, PNG, PDF, DOC, DOCX</Text>
+              {attachedFile && uploadedUrl ? (
+                <>
+                  <Image
+                    source={{ uri: attachedFile.uri }}
+                    style={styles.attachPreview}
+                    resizeMode="cover"
+                  />
+                  {uploading && (
+                    <View style={styles.uploadingOverlay}>
+                      <ActivityIndicator size="small" color={colors.white} />
+                    </View>
+                  )}
+                  <View style={styles.attachInfo}>
+                    <Text style={styles.attachText} numberOfLines={1}>
+                      {attachedFile.name}
+                    </Text>
+                    <Text style={styles.attachSubText}>
+                      {uploading ? 'Uploading...' : 'Uploaded ✓'}
+                    </Text>
+                  </View>
+                  {!uploading && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setAttachedFile(null);
+                        setUploadedUrl('');
+                      }}
+                    >
+                      <Icon name="close-circle" size={20} color="#DC2626" />
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Icon name="upload-outline" size={24} color="#2E8B3E" />
+                  <Text style={styles.attachText}>
+                    {uploading ? 'Uploading...' : 'Click to attach image'}
+                  </Text>
+                  <Text style={styles.attachSubText}>Camera • Gallery</Text>
+                </>
               )}
             </TouchableOpacity>
 
@@ -244,22 +680,12 @@ const ComposeMessageScreen = ({ navigation }) => {
             <View style={styles.twoCol}>
               <View style={styles.colLeft}>
                 <Text style={styles.label}>Priority</Text>
-                <Dropdown
-                  value={priority}
-                  placeholder="Select priority"
-                  options={PRIORITIES}
-                  onSelect={setPriority}
-                />
+                <PriorityDropdown value={priority} onSelect={setPriority} />
               </View>
 
               <View style={styles.colRight}>
                 <Text style={styles.label}>Type</Text>
-                <Dropdown
-                  value={type}
-                  placeholder="Select type"
-                  options={TYPES}
-                  onSelect={setType}
-                />
+                <TypeDropdown value={type} onSelect={setType} />
               </View>
             </View>
 
@@ -288,27 +714,97 @@ const ComposeMessageScreen = ({ navigation }) => {
 
             <View style={styles.optionGap} />
 
-            {CHECK_OPTIONS.map(o => {
-              const checked = specific.includes(o.key);
+            {/* Specific Dropdowns */}
+            <TouchableOpacity
+              style={styles.optionRow}
+              activeOpacity={0.7}
+              onPress={() => toggleSpecific('specificOffice')}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  specific.includes('specificOffice') && styles.checkboxActive,
+                ]}
+              >
+                {specific.includes('specificOffice') && (
+                  <Icon name="check" size={16} color={colors.white} />
+                )}
+              </View>
+              <Text style={styles.optionText}>Specific Office Bearer</Text>
+            </TouchableOpacity>
 
-              return (
-                <TouchableOpacity
-                  key={o.key}
-                  style={styles.optionRow}
-                  activeOpacity={0.7}
-                  onPress={() => toggleSpecific(o.key)}
-                >
-                  <View
-                    style={[styles.checkbox, checked && styles.checkboxActive]}
-                  >
-                    {checked && (
-                      <Icon name="check" size={16} color={colors.white} />
-                    )}
-                  </View>
-                  <Text style={styles.optionText}>{o.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+            {specific.includes('specificOffice') && (
+              <View style={styles.dropdownContainer}>
+                <Dropdown
+                  value={selectedOffice}
+                  placeholder="Select Office Bearer"
+                  options={recipientsByType.office}
+                  onSelect={setSelectedOffice}
+                  disabled={loadingRecipients}
+                />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.optionRow}
+              activeOpacity={0.7}
+              onPress={() => toggleSpecific('specificExecutive')}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  specific.includes('specificExecutive') &&
+                    styles.checkboxActive,
+                ]}
+              >
+                {specific.includes('specificExecutive') && (
+                  <Icon name="check" size={16} color={colors.white} />
+                )}
+              </View>
+              <Text style={styles.optionText}>Specific Executive Member</Text>
+            </TouchableOpacity>
+
+            {specific.includes('specificExecutive') && (
+              <View style={styles.dropdownContainer}>
+                <Dropdown
+                  value={selectedExecutive}
+                  placeholder="Select Executive Member"
+                  options={recipientsByType.executive}
+                  onSelect={setSelectedExecutive}
+                  disabled={loadingRecipients}
+                />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.optionRow}
+              activeOpacity={0.7}
+              onPress={() => toggleSpecific('specificLocal')}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  specific.includes('specificLocal') && styles.checkboxActive,
+                ]}
+              >
+                {specific.includes('specificLocal') && (
+                  <Icon name="check" size={16} color={colors.white} />
+                )}
+              </View>
+              <Text style={styles.optionText}>Specific Local Secretary</Text>
+            </TouchableOpacity>
+
+            {specific.includes('specificLocal') && (
+              <View style={styles.dropdownContainer}>
+                <Dropdown
+                  value={selectedLocal}
+                  placeholder="Select Local Secretary"
+                  options={recipientsByType.local}
+                  onSelect={setSelectedLocal}
+                  disabled={loadingRecipients}
+                />
+              </View>
+            )}
           </ScrollView>
 
           {/* Buttons */}
@@ -323,7 +819,7 @@ const ComposeMessageScreen = ({ navigation }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.sendButton}
+              style={[styles.sendButton, sending && styles.sendButtonDisabled]}
               activeOpacity={0.85}
               onPress={handleSend}
               disabled={sending}
@@ -396,7 +892,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 56,
+    height: 70,
     marginTop: 18,
     borderWidth: 1.5,
     borderStyle: 'dashed',
@@ -406,19 +902,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
 
-  attachText: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.semiBold,
-    color: '#2E8B3E',
-    marginLeft: 8,
-    flexShrink: 1,
+  attachPreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#E5E7EB',
   },
 
-  attachHint: {
+  uploadingOverlay: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  attachInfo: {
+    flex: 1,
+  },
+
+  attachText: {
     fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: '#2E8B3E',
+  },
+
+  attachSubText: {
+    fontSize: 10,
     fontFamily: FontFamily.regular,
     color: '#6B7280',
-    marginLeft: 8,
   },
 
   // Priority & Type
@@ -446,6 +961,10 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8E4',
     borderRadius: 12,
     paddingHorizontal: 14,
+  },
+
+  selectDisabled: {
+    opacity: 0.6,
   },
 
   selectText: {
@@ -518,6 +1037,91 @@ const styles = StyleSheet.create({
     borderColor: '#2E8B3E',
   },
 
+  // Dropdown Container
+  dropdownContainer: {
+    marginLeft: 40,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+
+  // Dropdown styles
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  sheet: {
+    width: wp('70%'),
+    maxHeight: '60%',
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 8,
+  },
+
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: '#1F2937',
+  },
+
+  optionsList: {
+    maxHeight: 300,
+  },
+
+  sheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+
+  sheetItemActive: {
+    backgroundColor: '#F0F9FF',
+  },
+
+  sheetText: {
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.medium,
+    color: '#1F2937',
+  },
+
+  sheetTextActive: {
+    fontFamily: FontFamily.bold,
+    color: colors.primary,
+  },
+
+  sheetSubText: {
+    fontSize: 11,
+    fontFamily: FontFamily.regular,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+
+  noResults: {
+    textAlign: 'center',
+    paddingVertical: 16,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: '#6B7280',
+  },
+
   // Footer
   footer: {
     flexDirection: 'row',
@@ -560,50 +1164,15 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
 
+  sendButtonDisabled: {
+    opacity: 0.6,
+  },
+
   sendText: {
     fontSize: FontSize.md,
     fontFamily: FontFamily.bold,
     color: colors.white,
     marginLeft: 8,
-  },
-
-  // Dropdown modal
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  sheet: {
-    width: wp('65%'),
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    paddingVertical: 8,
-    elevation: 8,
-  },
-
-  sheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 13,
-  },
-
-  sheetItemActive: {
-    backgroundColor: colors.primaryLight,
-  },
-
-  sheetText: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
-    color: colors.SecondTitleColor,
-  },
-
-  sheetTextActive: {
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
   },
 });
 

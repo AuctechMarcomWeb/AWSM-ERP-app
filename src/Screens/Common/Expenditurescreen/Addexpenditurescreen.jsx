@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   View,
@@ -11,28 +11,26 @@ import {
   Platform,
   Alert,
   StyleSheet,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { launchImageLibrary } from 'react-native-image-picker';
 
 import colors from '../../../themes/colors';
 import { FontFamily, FontSize } from '../../../themes/typography';
 
-import BottomNav from '../../../components/BottomNav/BottomNav';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
-
-const EXPENSE_TYPES = [
-  'Wazifa',
-  'Contingency',
-  'Stationary etc.',
-  'Commission',
-  'Postage',
-  'Other',
-];
-const PAYMENT_MODES = ['Cash', 'UPI', 'Cheque', 'Bank Transfer'];
+import {
+  getExpenses,
+  getModeOfPayments,
+  uploadImage,
+  createExpenditure,
+} from '../../../api/expenditure';
 
 const formatDate = d =>
   `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(
@@ -50,28 +48,35 @@ const Label = ({ text, required }) => (
   </Text>
 );
 
-const Dropdown = ({ icon, value, placeholder, options, onSelect }) => {
+const Dropdown = ({ icon, value, placeholder, options, onSelect, loading }) => {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <TouchableOpacity
-        style={styles.field}
+        style={loading ? styles.fieldLoading : styles.field}
         activeOpacity={0.8}
-        onPress={() => setOpen(true)}
+        onPress={() => !loading && setOpen(true)}
+        disabled={loading}
       >
         <Icon name={icon} size={22} color="#1F2937" />
-        <Text
-          style={[styles.fieldText, !value && styles.placeholderText]}
-          numberOfLines={1}
-        >
-          {value || placeholder}
-        </Text>
-        <Icon name="chevron-down" size={20} color="#1F2937" />
+        {loading ? (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.loadingIcon} />
+        ) : (
+          <>
+            <Text
+              style={[styles.fieldText, !value && styles.placeholderText]}
+              numberOfLines={1}
+            >
+              {value?.title || value?.name || placeholder}
+            </Text>
+            <Icon name="chevron-down" size={20} color="#1F2937" />
+          </>
+        )}
       </TouchableOpacity>
 
       <Modal
-        visible={open}
+        visible={open && !loading}
         transparent
         animationType="fade"
         onRequestClose={() => setOpen(false)}
@@ -82,31 +87,35 @@ const Dropdown = ({ icon, value, placeholder, options, onSelect }) => {
           onPress={() => setOpen(false)}
         >
           <View style={styles.sheet}>
-            {options.map(o => (
-              <TouchableOpacity
-                key={o}
-                style={[
-                  styles.sheetItem,
-                  o === value && styles.sheetItemActive,
-                ]}
-                onPress={() => {
-                  onSelect(o);
-                  setOpen(false);
-                }}
-              >
-                <Text
+            {options.length === 0 ? (
+              <Text style={styles.noOptions}>No options available</Text>
+            ) : (
+              options.map(o => (
+                <TouchableOpacity
+                  key={o._id || o.id}
                   style={[
-                    styles.sheetText,
-                    o === value && styles.sheetTextActive,
+                    styles.sheetItem,
+                    value?._id === o._id && styles.sheetItemActive,
                   ]}
+                  onPress={() => {
+                    onSelect(o);
+                    setOpen(false);
+                  }}
                 >
-                  {o}
-                </Text>
-                {o === value && (
-                  <Icon name="check" size={18} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.sheetText,
+                      value?._id === o._id && styles.sheetTextActive,
+                    ]}
+                  >
+                    {o.title || o.name}
+                  </Text>
+                  {value?._id === o._id && (
+                    <Icon name="check" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -129,18 +138,61 @@ const InputField = ({ icon, ...props }) => (
 // Screen
 // ---------------------------------------------------------------
 const AddExpenditureScreen = ({ navigation }) => {
-  const [expenseType, setExpenseType] = useState('');
+  const [expenseType, setExpenseType] = useState(null);
+  const [expenseTypes, setExpenseTypes] = useState([]);
+  const [paymentModes, setPaymentModes] = useState([]);
+  const [loadingExpenses, setLoadingExpenses] = useState(true);
+  const [loadingModes, setLoadingModes] = useState(true);
+
   const [date, setDate] = useState(null);
   const [amount, setAmount] = useState('');
-  const [paymentMode, setPaymentMode] = useState('');
+  const [paymentMode, setPaymentMode] = useState(null);
   const [paidTo, setPaidTo] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [billNo, setBillNo] = useState('');
-  const [billImage, setBillImage] = useState('');
+  const [billImageFile, setBillImageFile] = useState(null);
+  const [billImageUrl, setBillImageUrl] = useState('');
   const [description, setDescription] = useState('');
   const [remarks, setRemarks] = useState('');
   const [showPicker, setShowPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Fetch expense types and payment modes on mount
+  useEffect(() => {
+    fetchExpenseTypes();
+    fetchPaymentModes();
+  }, []);
+
+  const fetchExpenseTypes = async () => {
+    setLoadingExpenses(true);
+    try {
+      const result = await getExpenses();
+      if (result.success) {
+        setExpenseTypes(result.expenses);
+      }
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      Alert.alert('Error', 'Failed to load expense types');
+    } finally {
+      setLoadingExpenses(false);
+    }
+  };
+
+  const fetchPaymentModes = async () => {
+    setLoadingModes(true);
+    try {
+      const result = await getModeOfPayments();
+      if (result.success) {
+        setPaymentModes(result.paymentModes);
+      }
+    } catch (error) {
+      console.error('Error fetching payment modes:', error);
+      Alert.alert('Error', 'Failed to load payment modes');
+    } finally {
+      setLoadingModes(false);
+    }
+  };
 
   const handleDateChange = (event, selected) => {
     if (Platform.OS === 'android') {
@@ -151,43 +203,120 @@ const AddExpenditureScreen = ({ navigation }) => {
     if (selected) setDate(selected);
   };
 
-  const handleUpload = async () => {
-    // Plug in your picker here, e.g. react-native-image-picker:
-    // const res = await launchImageLibrary({ mediaType: 'photo' });
-    // setBillImage(res.assets[0].fileName);
-    Alert.alert('Upload', 'Connect your image picker in handleUpload().');
+  const handleUploadBillImage = async () => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: false,
+      maxWidth: 1920,
+      maxHeight: 1080,
+    };
+
+    launchImageLibrary(options, (response) => {
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+      } else if (response.errorCode) {
+        Alert.alert('Gallery Error', response.errorMessage || 'Failed to open gallery');
+      } else if (response.assets && response.assets.length > 0) {
+        const asset = response.assets[0];
+        const imageFile = {
+          uri: Platform.OS === 'android' ? asset.uri : asset.uri.replace('file://', ''),
+          type: asset.type || 'image/jpeg',
+          name: asset.fileName || `bill_${Date.now()}.jpg`,
+        };
+        setBillImageFile(imageFile);
+        uploadBillImage(imageFile);
+      }
+    });
+  };
+
+  const uploadBillImage = async (imageFile) => {
+    try {
+      setUploading(true);
+      console.log('📤 Uploading bill image...');
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: imageFile.uri,
+        type: imageFile.type,
+        name: imageFile.name,
+      });
+
+      const uploadResult = await uploadImage(formData);
+      setUploading(false);
+
+      if (uploadResult.success) {
+        setBillImageUrl(uploadResult.imageUrl);
+        console.log('✅ Bill image uploaded:', uploadResult.imageUrl);
+      } else {
+        console.error('❌ Upload failed:', uploadResult.message);
+        Alert.alert('Upload Error', uploadResult.message);
+        setBillImageFile(null);
+      }
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      Alert.alert('Error', 'Failed to upload bill image');
+      setBillImageFile(null);
+    }
   };
 
   const handleSave = async () => {
-    if (!expenseType)
-      return Alert.alert('Required', 'Please select expense type');
+    if (!expenseType) return Alert.alert('Required', 'Please select expense type');
     if (!date) return Alert.alert('Required', 'Please select date');
     if (!amount.trim()) return Alert.alert('Required', 'Please enter amount');
-    if (!paymentMode)
-      return Alert.alert('Required', 'Please select payment mode');
-    if (!paidTo.trim())
-      return Alert.alert('Required', 'Please enter payee name');
+    if (!paymentMode) return Alert.alert('Required', 'Please select payment mode');
+    if (!paidTo.trim()) return Alert.alert('Required', 'Please enter payee name');
 
     setSaving(true);
 
     try {
-      // Connect your save-expenditure API here.
-      console.log('Save expenditure:', {
-        expenseType,
-        date: date.toISOString(),
-        amount,
-        paymentMode,
-        paidTo,
-        transactionId,
-        billNo,
-        billImage,
-        description,
-        remarks,
-      });
+      // Format date as YYYY-MM-DD string only
+      const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-      navigation && navigation.goBack();
-    } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to save expenditure');
+      const payload = {
+        expense: expenseType._id,
+        date: dateString,                      // ✅ Just date string like "2026-11-12"
+        amount: parseFloat(amount),
+        paymentMode: paymentMode.name,         // ✅ Send payment mode NAME not ID
+        paidTo,
+        transactionId: transactionId || '',
+        billNo: billNo || '',
+        billImage: billImageUrl || '',
+        description: description || '',
+        remarks: remarks || '',
+      };
+
+      console.log('💾 Saving expenditure...');
+      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
+      const result = await createExpenditure(payload);
+
+      if (result.success) {
+        console.log('✅ Expenditure saved successfully!');
+        
+        // Reset form immediately
+        setExpenseType(null);
+        setDate(null);
+        setAmount('');
+        setPaymentMode(null);
+        setPaidTo('');
+        setTransactionId('');
+        setBillNo('');
+        setBillImageFile(null);
+        setBillImageUrl('');
+        setDescription('');
+        setRemarks('');
+        
+        Alert.alert('Success', 'Expenditure saved successfully!', [
+          {
+            text: 'OK',
+            onPress: () => navigation && navigation.goBack(),
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to save expenditure');
+      }
+    } catch (error) {
+      console.error('❌ Error saving:', error);
+      Alert.alert('Error', error.message || 'Failed to save expenditure');
     } finally {
       setSaving(false);
     }
@@ -219,8 +348,9 @@ const AddExpenditureScreen = ({ navigation }) => {
                   icon="layers-outline"
                   value={expenseType}
                   placeholder="Select Expense Type"
-                  options={EXPENSE_TYPES}
+                  options={expenseTypes}
                   onSelect={setExpenseType}
+                  loading={loadingExpenses}
                 />
               </View>
 
@@ -230,6 +360,7 @@ const AddExpenditureScreen = ({ navigation }) => {
                   style={styles.field}
                   activeOpacity={0.8}
                   onPress={() => setShowPicker(true)}
+                  disabled={saving}
                 >
                   <Icon
                     name="calendar-month-outline"
@@ -265,8 +396,9 @@ const AddExpenditureScreen = ({ navigation }) => {
                   icon="credit-card-outline"
                   value={paymentMode}
                   placeholder="Select Payment Mode"
-                  options={PAYMENT_MODES}
+                  options={paymentModes}
                   onSelect={setPaymentMode}
+                  loading={loadingModes}
                 />
               </View>
             </View>
@@ -315,12 +447,34 @@ const AddExpenditureScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.upload}
                   activeOpacity={0.8}
-                  onPress={handleUpload}
+                  onPress={handleUploadBillImage}
+                  disabled={uploading}
                 >
-                  <Icon name="cloud-upload-outline" size={34} color="#2E8B3E" />
-                  <Text style={styles.uploadText} numberOfLines={2}>
-                    {billImage || 'Click to upload bill image'}
-                  </Text>
+                  {billImageFile && billImageUrl ? (
+                    <>
+                      <Image
+                        source={{ uri: billImageFile.uri }}
+                        style={styles.billPreview}
+                        resizeMode="cover"
+                      />
+                      {uploading && (
+                        <View style={styles.uploadingOverlay}>
+                          <ActivityIndicator size="small" color={colors.white} />
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Icon
+                        name="cloud-upload-outline"
+                        size={34}
+                        color="#2E8B3E"
+                      />
+                      <Text style={styles.uploadText} numberOfLines={2}>
+                        {uploading ? 'Uploading...' : 'Click to upload bill image'}
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -384,10 +538,10 @@ const AddExpenditureScreen = ({ navigation }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.saveButton}
+              style={[styles.saveButton, (saving || uploading) && styles.buttonDisabled]}
               activeOpacity={0.85}
               onPress={handleSave}
-              disabled={saving}
+              disabled={saving || uploading}
             >
               <Icon
                 name="content-save-outline"
@@ -502,6 +656,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
 
+  fieldLoading: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FBFCFB',
+    borderWidth: 1,
+    borderColor: '#E2E8E4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    opacity: 0.6,
+  },
+
+  loadingIcon: {
+    marginLeft: 10,
+  },
+
   fieldText: {
     flex: 1,
     marginLeft: 10,
@@ -560,6 +730,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  billPreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+
+  uploadingOverlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  noOptions: {
+    textAlign: 'center',
+    paddingVertical: 16,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: '#6B7280',
+  },
+
   // Footer
   footer: {
     flexDirection: 'row',
@@ -607,6 +801,10 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     color: colors.white,
     marginLeft: 8,
+  },
+
+  buttonDisabled: {
+    opacity: 0.6,
   },
 
   // Dropdown modal

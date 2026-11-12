@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   Modal,
   Alert,
   StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -19,9 +22,10 @@ import { FontFamily, FontSize } from '../../../themes/typography';
 import BottomNav from '../../../components/BottomNav/BottomNav';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
+import { fetchExpenditures, getExpenses, getModeOfPayments } from '../../../api/expenditure';
 
 // ---------------------------------------------------------------
-// Dummy data — replace with your API response
+// Dummy data — will be fetched from API
 // ---------------------------------------------------------------
 const NAV_TABS = [
   { key: 'Dashboard', label: 'Dashboard', icon: 'home-outline' },
@@ -31,47 +35,11 @@ const NAV_TABS = [
   { key: 'More', label: 'More', icon: 'dots-horizontal' },
 ];
 
-const MODES = ['All', 'Cash', 'UPI', 'Cheque'];
-const EXPENSE_TYPES = [
-  'All',
-  'Wazifa',
-  'Contingency',
-  'Stationary etc.',
-  'Commission',
-  'Postage',
-];
-
-const EXPENSES = [
-  { id: '1', title: 'Wazifa', date: '20 Aug 2026', amount: 2500, mode: 'Cash' },
-  {
-    id: '2',
-    title: 'Contingency',
-    date: '20 Aug 2026',
-    amount: 2000,
-    mode: 'Cash',
-  },
-  {
-    id: '3',
-    title: 'Stationary etc.',
-    date: '19 Aug 2026',
-    amount: 500,
-    mode: 'Cash',
-  },
-  {
-    id: '4',
-    title: 'Commission',
-    date: '19 Aug 2026',
-    amount: 5000,
-    mode: 'UPI',
-  },
-  {
-    id: '5',
-    title: 'Postage',
-    date: '19 Aug 2026',
-    amount: 5000,
-    mode: 'Cheque',
-  },
-];
+const MODE_TONES = {
+  Cash: { bg: '#DCEBFA', text: '#1D6FD6' },
+  UPI: { bg: '#EBDDFB', text: '#7C3AED' },
+  Cheque: { bg: '#D7EAFB', text: '#1D6FD6' },
+};
 
 const ICONS = {
   Wazifa: 'flash',
@@ -81,13 +49,83 @@ const ICONS = {
   Postage: 'email',
 };
 
-const MODE_TONES = {
-  Cash: { bg: '#DCEBFA', text: '#1D6FD6' },
-  UPI: { bg: '#EBDDFB', text: '#7C3AED' },
-  Cheque: { bg: '#D7EAFB', text: '#1D6FD6' },
-};
-
 const formatNumber = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+// ---------------------------------------------------------------
+// Dropdown Component for Filter Modal
+// ---------------------------------------------------------------
+const FilterDropdown = ({
+  label,
+  options,
+  value,
+  onChange,
+  loading = false,
+}) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  return (
+    <View style={styles.dropdownContainer}>
+      <Text style={styles.filterSubtitle}>{label}</Text>
+      <TouchableOpacity
+        style={styles.dropdownButton}
+        onPress={() => setDropdownOpen(!dropdownOpen)}
+      >
+        <Text style={styles.dropdownButtonText}>
+          {value || 'Select...'}
+        </Text>
+        <Icon
+          name={dropdownOpen ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color="#4B5563"
+        />
+      </TouchableOpacity>
+
+      {dropdownOpen && (
+        <View style={styles.dropdownList}>
+          {loading ? (
+            <ActivityIndicator
+              size="small"
+              color={colors.primary}
+              style={styles.dropdownLoader}
+            />
+          ) : options.length === 0 ? (
+            <Text style={styles.dropdownEmptyText}>No options</Text>
+          ) : (
+            options.map((option, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.dropdownItem,
+                  value === option && styles.dropdownItemActive,
+                ]}
+                onPress={() => {
+                  onChange(option);
+                  setDropdownOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.dropdownItemText,
+                    value === option && styles.dropdownItemTextActive,
+                  ]}
+                >
+                  {option}
+                </Text>
+                {value === option && (
+                  <Icon
+                    name="check"
+                    size={18}
+                    color={colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
 
 // ---------------------------------------------------------------
 // Screen
@@ -98,8 +136,21 @@ const ExpenditureScreen = ({ navigation }) => {
   const [expenseType, setExpenseType] = useState('All');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // API states
+  const [data, setData] = useState([]);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Filter data from API
+  const [expenseTypes, setExpenseTypes] = useState(['All']);
+  const [paymentModes, setPaymentModes] = useState(['All']);
+  const [expenseIdMap, setExpenseIdMap] = useState({}); // Map expense name -> ID
+  const [filterLoading, setFilterLoading] = useState(false);
 
   // Draft filter states for modal
   const [draftMode, setDraftMode] = useState('All');
@@ -107,27 +158,112 @@ const ExpenditureScreen = ({ navigation }) => {
   const [draftFromDate, setDraftFromDate] = useState('');
   const [draftToDate, setDraftToDate] = useState('');
 
-  const data = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  // Load filter options from API
+  const loadFilterOptions = useCallback(async () => {
+    try {
+      setFilterLoading(true);
 
-    return EXPENSES.filter(e => {
-      if (mode !== 'All' && e.mode !== mode) return false;
-      if (expenseType !== 'All' && e.title !== expenseType) return false;
-      if (
-        q &&
-        !e.title.toLowerCase().includes(q) &&
-        !e.date.toLowerCase().includes(q)
-      ) {
-        return false;
+      // Fetch expenses and payment modes in parallel
+      const [expensesRes, modesRes] = await Promise.all([
+        getExpenses(),
+        getModeOfPayments(),
+      ]);
+
+      if (expensesRes.success) {
+        const types = ['All'];
+        const idMap = {};
+        expensesRes.expenses.forEach(e => {
+          types.push(e.title);
+          idMap[e.title] = e._id;
+        });
+        setExpenseTypes(types);
+        setExpenseIdMap(idMap);
+        console.log('✅ Expense ID Map:', idMap);
       }
-      return true;
-    });
-  }, [search, mode, expenseType]);
 
-  const total = useMemo(
-    () => data.reduce((sum, e) => sum + e.amount, 0),
-    [data],
+      if (modesRes.success) {
+        const modes = ['All', ...modesRes.paymentModes.map(m => m.name)];
+        setPaymentModes(modes);
+      }
+    } catch (error) {
+      console.error('Error loading filter options:', error);
+    } finally {
+      setFilterLoading(false);
+    }
+  }, []);
+
+  // Fetch expenditures function
+  const loadExpenditures = useCallback(
+    async (page = 1, shouldRefresh = false) => {
+      try {
+        if (shouldRefresh) {
+          setRefreshing(true);
+        } else if (page === 1) {
+          setLoading(true);
+        }
+
+        // Convert expense type name to ID
+        const expenseId = expenseType === 'All' ? null : expenseIdMap[expenseType];
+
+        const response = await fetchExpenditures({
+          page,
+          limit: 10,
+          expense: expenseId,
+          paymentMode: mode === 'All' ? null : mode,
+          fromDate,
+          toDate,
+        });
+
+        if (response.success) {
+          if (page === 1) {
+            setData(response.expenditures);
+          } else {
+            setData(prev => [...prev, ...response.expenditures]);
+          }
+
+          setTotalAmount(response.totalAmount);
+          setCurrentPage(response.currentPage);
+          setTotalPages(response.totalPages);
+        } else {
+          Alert.alert('Error', response.message || 'Failed to load expenditures');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'An error occurred while loading expenditures');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [mode, expenseType, fromDate, toDate, expenseIdMap],
   );
+
+  // Load filter options on mount
+  useEffect(() => {
+    loadFilterOptions();
+    loadExpenditures(1, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Trigger API call when filters change
+  useEffect(() => {
+    if (mode !== 'All' || expenseType !== 'All' || fromDate || toDate) {
+      console.log('🔹 Filters changed, loading expenditures');
+      loadExpenditures(1, false);
+    }
+  }, [mode, expenseType, fromDate, toDate]);
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(() => {
+    setCurrentPage(1);
+    loadExpenditures(1, true);
+  }, [loadExpenditures]);
+
+  // Handle infinite scroll (load more)
+  const onEndReached = useCallback(() => {
+    if (currentPage < totalPages && !loading && !refreshing) {
+      loadExpenditures(currentPage + 1, false);
+    }
+  }, [currentPage, totalPages, loading, refreshing, loadExpenditures]);
 
   const handleTabPress = key => {
     if (key === 'Expenditure') return;
@@ -142,16 +278,38 @@ const ExpenditureScreen = ({ navigation }) => {
     setFilterOpen(true);
   };
 
-  const applyFilter = () => {
+  const applyFilter = useCallback(() => {
+    console.log('🔹 Apply Filter called');
+    console.log('  - draftMode:', draftMode);
+    console.log('  - draftType:', draftType);
+    console.log('  - draftFromDate:', draftFromDate);
+    console.log('  - draftToDate:', draftToDate);
+
     setMode(draftMode);
     setExpenseType(draftType);
     setFromDate(draftFromDate);
     setToDate(draftToDate);
     setFilterOpen(false);
-  };
+    setCurrentPage(1);
+
+    // Call loadExpenditures with new filter values directly
+    setTimeout(() => {
+      console.log('🔹 Loading expenditures after filters set');
+    }, 100);
+  }, [draftMode, draftType, draftFromDate, draftToDate]);
 
   const renderItem = ({ item }) => {
-    const tone = MODE_TONES[item.mode] || MODE_TONES.Cash;
+    const tone =
+      MODE_TONES[item.paymentMode] || MODE_TONES.Cash;
+
+    // Parse date for display
+    const displayDate = item.date
+      ? new Date(item.date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+      : 'N/A';
 
     return (
       <TouchableOpacity
@@ -176,7 +334,7 @@ const ExpenditureScreen = ({ navigation }) => {
 
           <View style={styles.dateRow}>
             <Icon name="calendar-month-outline" size={16} color="#4B5563" />
-            <Text style={styles.dateText}>{item.date}</Text>
+            <Text style={styles.dateText}>{displayDate}</Text>
           </View>
         </View>
 
@@ -185,7 +343,7 @@ const ExpenditureScreen = ({ navigation }) => {
 
           <View style={[styles.badge, { backgroundColor: tone.bg }]}>
             <Text style={[styles.badgeText, { color: tone.text }]}>
-              {item.mode}
+              {item.paymentMode}
             </Text>
           </View>
         </View>
@@ -233,20 +391,55 @@ const ExpenditureScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* List */}
-          <FlatList
-            data={data}
-            keyExtractor={item => item.id}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Icon name="wallet-outline" size={46} color="#9CA3AF" />
-                <Text style={styles.emptyText}>No expenditure found</Text>
-              </View>
-            }
-          />
+          {/* Loading indicator */}
+          {loading && data.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading expenditures...</Text>
+            </View>
+          ) : (
+            <>
+              {/* Total Amount Section */}
+              {/* <View style={styles.totalSection}>
+                <Text style={styles.totalLabel}>Total Amount</Text>
+                <Text style={styles.totalAmount}>
+                  ₹ {formatNumber(totalAmount)}
+                </Text>
+              </View> */}
+
+              {/* List */}
+              <FlatList
+                data={data}
+                keyExtractor={item => item.id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={colors.primary}
+                  />
+                }
+                onEndReached={onEndReached}
+                onEndReachedThreshold={0.5}
+                ListEmptyComponent={
+                  <View style={styles.empty}>
+                    <Icon name="wallet-outline" size={46} color="#9CA3AF" />
+                    <Text style={styles.emptyText}>No expenditure found</Text>
+                  </View>
+                }
+                ListFooterComponent={
+                  currentPage < totalPages ? (
+                    <View style={styles.footerLoader}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.footerText}>Loading more...</Text>
+                    </View>
+                  ) : null
+                }
+              />
+            </>
+          )}
         </View>
 
         <BottomNav
@@ -271,104 +464,79 @@ const ExpenditureScreen = ({ navigation }) => {
               style={styles.filterSheet}
               onStartShouldSetResponder={() => true}
             >
-              <Text style={styles.filterTitle}>Filter Expenditure</Text>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.filterTitle}>Filter Expenditure</Text>
 
-              {/* Payment Mode Filter */}
-              <Text style={styles.filterSubtitle}>Payment Mode</Text>
-              <View style={styles.chipRow}>
-                {MODES.map(m => {
-                  const active = m === draftMode;
-                  return (
-                    <TouchableOpacity
-                      key={m}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setDraftMode(m)}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          active && styles.chipTextActive,
-                        ]}
-                      >
-                        {m}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                {/* Payment Mode Dropdown */}
+                <FilterDropdown
+                  label="Payment Mode"
+                  options={paymentModes}
+                  value={draftMode}
+                  onChange={setDraftMode}
+                  loading={filterLoading}
+                />
 
-              {/* Expense Type Filter */}
-              <Text style={[styles.filterSubtitle, { marginTop: 8 }]}>
-                Expense Type
-              </Text>
-              <View style={styles.chipRow}>
-                {EXPENSE_TYPES.map(t => {
-                  const active = t === draftType;
-                  return (
-                    <TouchableOpacity
-                      key={t}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setDraftType(t)}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          active && styles.chipTextActive,
-                        ]}
-                      >
-                        {t}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                {/* Expense Type Dropdown */}
+                <FilterDropdown
+                  label="Expense Type"
+                  options={expenseTypes}
+                  value={draftType}
+                  onChange={setDraftType}
+                  loading={filterLoading}
+                />
 
-              {/* Date Filters */}
-              <View style={styles.dateFilterRow}>
-                <View style={styles.dateInputContainer}>
-                  <Text style={styles.filterSubtitle}>From Date</Text>
-                  <View style={styles.dateBox}>
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="dd/mm/yyyy"
-                      placeholderTextColor="#9CA3AF"
-                      value={draftFromDate}
-                      onChangeText={setDraftFromDate}
-                    />
-                    <Icon
-                      name="calendar-blank-outline"
-                      size={18}
-                      color="#4B5563"
-                    />
+                {/* Date Filters */}
+                <View style={styles.dateFilterRow}>
+                  <View style={styles.dateInputContainer}>
+                    <Text style={styles.filterSubtitle}>From Date</Text>
+                    <View style={styles.dateBox}>
+                      <TextInput
+                        style={styles.dateInput}
+                        placeholder="dd/mm/yyyy"
+                        placeholderTextColor="#9CA3AF"
+                        value={draftFromDate}
+                        onChangeText={setDraftFromDate}
+                      />
+                      <Icon
+                        name="calendar-blank-outline"
+                        size={18}
+                        color="#4B5563"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.dateInputContainer}>
+                    <Text style={styles.filterSubtitle}>To Date</Text>
+                    <View style={styles.dateBox}>
+                      <TextInput
+                        style={styles.dateInput}
+                        placeholder="dd/mm/yyyy"
+                        placeholderTextColor="#9CA3AF"
+                        value={draftToDate}
+                        onChangeText={setDraftToDate}
+                      />
+                      <Icon
+                        name="calendar-blank-outline"
+                        size={18}
+                        color="#4B5563"
+                      />
+                    </View>
                   </View>
                 </View>
 
-                <View style={styles.dateInputContainer}>
-                  <Text style={styles.filterSubtitle}>To Date</Text>
-                  <View style={styles.dateBox}>
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="dd/mm/yyyy"
-                      placeholderTextColor="#9CA3AF"
-                      value={draftToDate}
-                      onChangeText={setDraftToDate}
-                    />
-                    <Icon
-                      name="calendar-blank-outline"
-                      size={18}
-                      color="#4B5563"
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.applyButton}
-                activeOpacity={0.85}
-                onPress={applyFilter}
-              >
-                <Text style={styles.applyText}>Apply</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.applyButton, loading && styles.applyButtonDisabled]}
+                  activeOpacity={0.85}
+                  onPress={applyFilter}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.applyText}>Apply Filters</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </TouchableOpacity>
         </Modal>
@@ -389,6 +557,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: 'hidden',
+  },
+
+  // Center Loading
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.medium,
+    color: '#6B7280',
   },
 
   // Search & Filter Row
@@ -431,10 +613,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // Total Section
+  totalSection: {
+    marginHorizontal: wp('4.5%'),
+    marginVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#F0F7F2',
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2E8B3E',
+  },
+
+  totalLabel: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.medium,
+    color: '#4B5563',
+  },
+
+  totalAmount: {
+    marginTop: 4,
+    fontSize: FontSize.xl,
+    fontFamily: FontFamily.bold,
+    color: '#0F5132',
+  },
+
   // List
   listContent: {
     paddingHorizontal: wp('3.5%'),
-    paddingTop: 14,
+    paddingTop: 8,
     paddingBottom: 20,
   },
 
@@ -520,6 +727,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
+  // Footer loader
+  footerLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+
+  footerText: {
+    marginLeft: 8,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: '#6B7280',
+  },
+
   // Filter modal
   overlay: {
     flex: 1,
@@ -533,6 +755,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     padding: 20,
     paddingBottom: 30,
+    maxHeight: '85%',
   },
 
   filterTitle: {
@@ -621,10 +844,87 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  applyButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    opacity: 0.7,
+  },
+
   applyText: {
     fontSize: FontSize.md,
     fontFamily: FontFamily.bold,
     color: colors.white,
+  },
+
+  // Dropdown Styles
+  dropdownContainer: {
+    marginBottom: 16,
+  },
+
+  dropdownLoader: {
+    paddingVertical: 12,
+  },
+
+  dropdownButton: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F7FAF8',
+    borderWidth: 1,
+    borderColor: '#E2E8E4',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+  },
+
+  dropdownButtonText: {
+    flex: 1,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: '#1F2937',
+  },
+
+  dropdownList: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: '#E2E8E4',
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 200,
+    overflow: 'hidden',
+  },
+
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+
+  dropdownItemActive: {
+    backgroundColor: '#E8F5E9',
+  },
+
+  dropdownItemText: {
+    flex: 1,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: '#1F2937',
+  },
+
+  dropdownItemTextActive: {
+    fontFamily: FontFamily.semiBold,
+    color: colors.primary,
+  },
+
+  dropdownEmptyText: {
+    textAlign: 'center',
+    paddingVertical: 12,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: '#6B7280',
   },
 });
 

@@ -185,7 +185,7 @@ const Sidebar = ({ navigation, role }) => {
 
                   {/* Expand Icon */}
 
-                  {hasVisibleSubs && (
+                  {(hasVisibleSubs || hasSubItems) && (
                     <MaterialCommunityIcons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={wp('5.5%')}
@@ -203,6 +203,38 @@ const Sidebar = ({ navigation, role }) => {
                 {hasVisibleSubs && isExpanded && (
                   <View style={styles.subMenuContainer}>
                     {visibleSubs.map((subItem, subIndex) => (
+                      <TouchableOpacity
+                        key={subItem.key}
+                        activeOpacity={0.7}
+                        style={styles.subMenuItem}
+                        onPress={() => handleSubMenuPress(menu.key, subItem)}
+                      >
+                        <View style={styles.subMenuIndicator} />
+
+                        <MaterialCommunityIcons
+                          name={subItem.icon || 'circle-small'}
+                          size={wp('5%')}
+                          color={Colors.primary}
+                        />
+
+                        <Text style={styles.subMenuText}>
+                          {subItem.label || subItem.key}
+                        </Text>
+
+                        <MaterialCommunityIcons
+                          name="chevron-right"
+                          size={wp('4.5%')}
+                          color={Colors.placeHolderColor}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* Show all submenus if no visible subs (permission issue) */}
+                {menu.subs && menu.subs.length > 0 && isExpanded && visibleSubs.length === 0 && (
+                  <View style={styles.subMenuContainer}>
+                    {menu.subs.map((subItem, subIndex) => (
                       <TouchableOpacity
                         key={subItem.key}
                         activeOpacity={0.7}
