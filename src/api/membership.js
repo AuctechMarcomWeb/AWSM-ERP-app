@@ -2,15 +2,7 @@ import { createAxiosInstance } from './apiConfig';
 
 const membershipApi = createAxiosInstance('membership');
 
-/**
- * Get Master Register / Membership List
- * Returns paginated list of members with their relationships (Wazifadar, etc.)
- * @param {number} page - Page number (default: 1)
- * @param {number} limit - Items per page (default: 5)
- * @param {string} search - Search query (optional)
- * @param {boolean} isPagination - Enable pagination (default: false)
- * @returns { success, memberships, totalCount, message }
- */
+
 export const getMasterRegister = async (
   page = 1,
   limit = 5,

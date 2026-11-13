@@ -9,6 +9,7 @@ import {
   Platform,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -117,22 +118,35 @@ const MasterRegister = ({ navigation }) => {
 
   // API state
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [allMembers, setAllMembers] = useState(DEFAULT_MEMBERS);
   const [selectedId, setSelectedId] = useState(null);
-  
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10; // Load 10 items per page
+
   // Debounce timer for search
   const searchTimerRef = useRef(null);
 
   // Fetch master register data on mount or when filters change
   useEffect(() => {
-    fetchMasterRegisterWithFilters();
+    setPage(1);
+    setAllMembers([]);
+    setHasMore(true);
+    fetchMasterRegisterWithFilters(1);
   }, [applied]);
 
-  const fetchMasterRegisterWithFilters = async () => {
-    setLoading(true);
+  const fetchMasterRegisterWithFilters = async pageNum => {
+    if (pageNum === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       // Convert dates to YYYY-MM-DD format for API
-      const formatDateForAPI = (date) => {
+      const formatDateForAPI = date => {
         if (!date) return null;
         if (date instanceof Date) {
           return date.toISOString().split('T')[0];
@@ -140,13 +154,13 @@ const MasterRegister = ({ navigation }) => {
         return date;
       };
 
-      // Call API with filters
+      // Call API with filters and pagination
       const response = await getMembersFiltered(
         applied.type,
         applied.fromDate ? formatDateForAPI(applied.fromDate) : null,
         applied.toDate ? formatDateForAPI(applied.toDate) : null,
-        1,
-        100,
+        pageNum,
+        pageSize,
       );
 
       if (response.success && response.memberships) {
@@ -159,19 +173,35 @@ const MasterRegister = ({ navigation }) => {
           });
         }
 
-        setAllMembers(filtered);
-        if (filtered.length > 0) {
-          setSelectedId(filtered[0].id);
+        if (pageNum === 1) {
+          setAllMembers(filtered);
+          if (filtered.length > 0) {
+            setSelectedId(filtered[0].id);
+          }
+        } else {
+          setAllMembers(prev => [...prev, ...filtered]);
         }
+
+        // Check if there are more items
+        setHasMore(filtered.length >= pageSize);
+        setPage(pageNum);
       } else {
         console.warn('Failed to fetch members:', response.message);
-        setAllMembers(DEFAULT_MEMBERS);
+        if (pageNum === 1) {
+          setAllMembers(DEFAULT_MEMBERS);
+        }
+        setHasMore(false);
       }
     } catch (error) {
       console.error('Error fetching members:', error);
-      setAllMembers(DEFAULT_MEMBERS);
+      if (pageNum === 1) {
+        setAllMembers(DEFAULT_MEMBERS);
+      }
+      setHasMore(false);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
     }
   };
 
@@ -180,6 +210,20 @@ const MasterRegister = ({ navigation }) => {
     setDraftFromDate(applied.fromDate);
     setDraftToDate(applied.toDate);
     setFilterOpen(true);
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setPage(1);
+    setAllMembers([]);
+    setHasMore(true);
+    fetchMasterRegisterWithFilters(1);
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && !loading && hasMore) {
+      fetchMasterRegisterWithFilters(page + 1);
+    }
   };
 
   const applyFilter = () => {
@@ -192,14 +236,14 @@ const MasterRegister = ({ navigation }) => {
     setFilterOpen(false);
   };
 
-  const handleSearchChange = (text) => {
+  const handleSearchChange = text => {
     setSearch(text);
-    
+
     // Clear previous timer
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
     }
-    
+
     // Set new timer - apply search after 500ms
     searchTimerRef.current = setTimeout(() => {
       setApplied(prev => ({ ...prev, search: text }));
@@ -319,6 +363,15 @@ const MasterRegister = ({ navigation }) => {
                 renderItem={renderItem}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={colors.primary}
+                  />
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
                 ListHeaderComponent={
                   <View>
                     {/* Search Field & Filter Icon Row */}
@@ -341,14 +394,22 @@ const MasterRegister = ({ navigation }) => {
                           size={22}
                           color={colors.white}
                         />
-                        {(applied.type !== 'All Types' || applied.fromDate || applied.toDate) && (
+                        {(applied.type !== 'All Types' ||
+                          applied.fromDate ||
+                          applied.toDate) && (
                           <View style={styles.filterBadgeDot} />
                         )}
                       </TouchableOpacity>
                     </View>
-
-
                   </View>
+                }
+                ListFooterComponent={
+                  loadingMore && hasMore ? (
+                    <View style={styles.loadMoreContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.loadMoreText}>Loading more...</Text>
+                    </View>
+                  ) : null
                 }
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
@@ -643,6 +704,20 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     color: '#6B7280',
     textAlign: 'center',
+  },
+
+  loadMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+
+  loadMoreText: {
+    marginLeft: 10,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: colors.primary,
   },
 
   overlay: {

@@ -48,11 +48,20 @@ const DEFAULT_MEMBER = {
 
 const show = v => (v && String(v).trim() ? v : '-');
 
+const getInitials = (fullName) => {
+  if (!fullName) return '?';
+  const parts = String(fullName).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
 const MemberProfileScreen = ({ navigation, route }) => {
   const m = {
     ...DEFAULT_MEMBER,
     ...((route && route.params && route.params.member) || {}),
   };
+
+  const initials = getInitials(m.name);
 
   const infoLeft = [
     {
@@ -126,7 +135,7 @@ const MemberProfileScreen = ({ navigation, route }) => {
                   <Image source={{ uri: m.photo }} style={styles.photo} />
                 ) : (
                   <View style={styles.photoFallback}>
-                    <Icon name="account" size={64} color="#9CA3AF" />
+                    <Text style={styles.initialsText}>{initials}</Text>
                   </View>
                 )}
               </View>
@@ -290,6 +299,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2EF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  initialsText: {
+    fontSize: FontSize.xxxl,
+    fontFamily: FontFamily.bold,
+    color: '#3FA564',
   },
 
   profileInfo: {

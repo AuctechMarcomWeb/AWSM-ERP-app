@@ -8,6 +8,7 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -36,32 +37,75 @@ const MessagingScreen = ({ navigation }) => {
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10; // Load 10 items per page
 
   // Fetch messages on mount and when tab changes
   useEffect(() => {
-    fetchMessages();
+    setPage(1);
+    setMessages([]);
+    setHasMore(true);
+    fetchMessages(1);
   }, [tab]);
 
-  const fetchMessages = async () => {
-    setLoading(true);
+  const fetchMessages = async (pageNum) => {
+    if (pageNum === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
       const tabConfig = TABS.find(t => t.key === tab);
       const messageType = tabConfig?.type; // null for 'All', 'received' for 'Inbound', 'sent' for 'Outbound'
 
-      const response = await getMessagingAll(messageType, 1, 100);
+      const response = await getMessagingAll(messageType, pageNum, pageSize);
 
       if (response.success) {
-        setMessages(response.messages);
+        if (pageNum === 1) {
+          setMessages(response.messages);
+        } else {
+          setMessages(prev => [...prev, ...response.messages]);
+        }
+        
+        // Check if there are more items
+        setHasMore(response.messages.length >= pageSize);
+        setPage(pageNum);
       } else {
         console.warn('Failed to fetch messages:', response.message);
-        setMessages([]);
+        if (pageNum === 1) {
+          setMessages([]);
+        }
+        setHasMore(false);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
-      setMessages([]);
+      if (pageNum === 1) {
+        setMessages([]);
+      }
+      setHasMore(false);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setPage(1);
+    setMessages([]);
+    setHasMore(true);
+    fetchMessages(1);
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && !loading && hasMore) {
+      fetchMessages(page + 1);
     }
   };
 
@@ -200,7 +244,24 @@ const MessagingScreen = ({ navigation }) => {
                 renderItem={renderItem}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={colors.primary}
+                  />
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
+                ListFooterComponent={
+                  loadingMore && hasMore ? (
+                    <View style={styles.loadMoreContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.loadMoreText}>Loading more messages...</Text>
+                    </View>
+                  ) : null
+                }
                 ListEmptyComponent={
                   <View style={styles.empty}>
                     <Icon name="message-off-outline" size={46} color="#9CA3AF" />
@@ -417,6 +478,20 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     color: '#6B7280',
     marginTop: 8,
+  },
+
+  loadMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+
+  loadMoreText: {
+    marginLeft: 10,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: colors.primary,
   },
 });
 

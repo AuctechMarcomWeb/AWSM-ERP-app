@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
@@ -143,8 +144,11 @@ const ExpenditureScreen = ({ navigation }) => {
   const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10;
 
   // Filter data from API
   const [expenseTypes, setExpenseTypes] = useState(['All']);
@@ -200,6 +204,8 @@ const ExpenditureScreen = ({ navigation }) => {
           setRefreshing(true);
         } else if (page === 1) {
           setLoading(true);
+        } else {
+          setLoadingMore(true);
         }
 
         // Convert expense type name to ID
@@ -207,7 +213,7 @@ const ExpenditureScreen = ({ navigation }) => {
 
         const response = await fetchExpenditures({
           page,
-          limit: 10,
+          limit: pageSize,
           expense: expenseId,
           paymentMode: mode === 'All' ? null : mode,
           fromDate,
@@ -224,17 +230,27 @@ const ExpenditureScreen = ({ navigation }) => {
           setTotalAmount(response.totalAmount);
           setCurrentPage(response.currentPage);
           setTotalPages(response.totalPages);
+          
+          // Check if there are more items
+          setHasMore(page < response.totalPages);
         } else {
           Alert.alert('Error', response.message || 'Failed to load expenditures');
+          if (page === 1) {
+            setHasMore(false);
+          }
         }
       } catch (error) {
         Alert.alert('Error', 'An error occurred while loading expenditures');
+        if (page === 1) {
+          setHasMore(false);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setLoadingMore(false);
       }
     },
-    [mode, expenseType, fromDate, toDate, expenseIdMap],
+    [mode, expenseType, fromDate, toDate, expenseIdMap, pageSize],
   );
 
   // Load filter options on mount
@@ -243,6 +259,15 @@ const ExpenditureScreen = ({ navigation }) => {
     loadExpenditures(1, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-refresh when screen comes into focus (after adding new expenditure)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📱 Expenditure screen focused - refreshing data');
+      setCurrentPage(1);
+      loadExpenditures(1, true);
+    }, [loadExpenditures])
+  );
 
   // Trigger API call when filters change
   useEffect(() => {
@@ -260,10 +285,10 @@ const ExpenditureScreen = ({ navigation }) => {
 
   // Handle infinite scroll (load more)
   const onEndReached = useCallback(() => {
-    if (currentPage < totalPages && !loading && !refreshing) {
+    if (currentPage < totalPages && !loading && !refreshing && !loadingMore && hasMore) {
       loadExpenditures(currentPage + 1, false);
     }
-  }, [currentPage, totalPages, loading, refreshing, loadExpenditures]);
+  }, [currentPage, totalPages, loading, refreshing, loadingMore, hasMore, loadExpenditures]);
 
   const handleTabPress = key => {
     if (key === 'Expenditure') return;
@@ -430,7 +455,7 @@ const ExpenditureScreen = ({ navigation }) => {
                   </View>
                 }
                 ListFooterComponent={
-                  currentPage < totalPages ? (
+                  loadingMore && hasMore ? (
                     <View style={styles.footerLoader}>
                       <ActivityIndicator size="small" color={colors.primary} />
                       <Text style={styles.footerText}>Loading more...</Text>

@@ -233,9 +233,9 @@ const LetterRecordScreen = ({ navigation }) => {
     <TouchableOpacity
       activeOpacity={0.85}
       style={styles.card}
-      onPress={() =>
-        navigation && navigation.navigate('LetterDetail', { letter: item })
-      }
+      // onPress={() =>
+      //   navigation && navigation.navigate('LetterDetail', { letter: item })
+      // }
     >
       <View style={styles.cardIcon}>
         <Icon name="email-outline" size={24} color={colors.primary} />

@@ -15,7 +15,10 @@ const BackHeader = ({
   const handleBack = () => {
     if (onBack) {
       onBack();
-    } else if (navigation?.canGoBack()) {
+      return;
+    }
+
+    if (navigation?.canGoBack()) {
       navigation.goBack();
     }
   };
@@ -35,7 +38,9 @@ const BackHeader = ({
       </TouchableOpacity>
 
       <View style={styles.titleContainer}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -68,19 +73,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingHorizontal: 12,
   },
-
   iconButton: {
     width: 42,
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   titleContainer: {
     flex: 1,
     alignItems: 'center',
   },
-
   title: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.semiBold,
