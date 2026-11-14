@@ -312,3 +312,116 @@ export const createExpenditure = async (data) => {
     };
   }
 };
+
+/**
+ * Update Expenditure
+ * Updates an existing expenditure record
+ * Uses PUT /api/expenditures/:id endpoint
+ * @param {string} expenditureId - ID of expenditure to update
+ * @param {object} data - Updated expenditure data
+ * @returns { success, expenditure, message }
+ */
+export const updateExpenditure = async (expenditureId, data) => {
+  try {
+    if (!expenditureId) {
+      return {
+        success: false,
+        expenditure: null,
+        message: 'Expenditure ID is required',
+      };
+    }
+
+    if (!data.amount || !data.paymentMode || !data.paidTo) {
+      return {
+        success: false,
+        expenditure: null,
+        message: 'Missing required fields: amount, paymentMode, paidTo',
+      };
+    }
+
+    const expenditureApi = createAxiosInstance('expenditures');
+
+    const payload = {
+      expense: data.expense,
+      date: data.date,
+      amount: data.amount,
+      paymentMode: data.paymentMode,
+      paidTo: data.paidTo,
+      transactionId: data.transactionId || '',
+      billNo: data.billNo || '',
+      billImage: data.billImage || '',
+      description: data.description || '',
+      remarks: data.remarks || '',
+    };
+
+    const response = await expenditureApi.put(`/${expenditureId}`, payload);
+
+    if (response.data.statusCode === 200) {
+      console.log('✅ Expenditure Updated:');
+      console.log('   - ID:', expenditureId);
+      console.log('   - Amount:', data.amount);
+
+      return {
+        success: true,
+        expenditure: payload,
+        message: response.data.message || 'Expenditure updated successfully',
+      };
+    }
+
+    return {
+      success: false,
+      expenditure: null,
+      message: response.data.message || 'Failed to update expenditure',
+    };
+  } catch (error) {
+    console.error('Update expenditure error:', error.message);
+    return {
+      success: false,
+      expenditure: null,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+};
+
+/**
+ * Delete Expenditure
+ * Deletes an expenditure record
+ * Uses DELETE /api/expenditures/:id endpoint
+ * @param {string} expenditureId - ID of expenditure to delete
+ * @returns { success, message }
+ */
+export const deleteExpenditure = async (expenditureId) => {
+  try {
+    if (!expenditureId) {
+      return {
+        success: false,
+        message: 'Expenditure ID is required',
+      };
+    }
+
+    const expenditureApi = createAxiosInstance('expenditures');
+
+    const response = await expenditureApi.delete(`/${expenditureId}`);
+
+    if (response.data.statusCode === 200) {
+      console.log('✅ Expenditure Deleted:');
+      console.log('   - ID:', expenditureId);
+
+      return {
+        success: true,
+        message: response.data.message || 'Expenditure deleted successfully',
+      };
+    }
+
+    return {
+      success: false,
+      message: response.data.message || 'Failed to delete expenditure',
+    };
+  } catch (error) {
+    console.error('Delete expenditure error:', error.message);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+};

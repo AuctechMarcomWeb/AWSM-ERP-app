@@ -29,6 +29,7 @@ import MessagingScreen from '../Screens/Common/Messagingscreen/Messagingscreen';
 import ComposeMessageScreen from '../Screens/Common/Composemessagescreen/Composemessagescreen';
 import ExpenditureScreen from '../Screens/Common/Expenditurescreen/Expenditurescreen';
 import AddExpenditureScreen from '../Screens/Common/Expenditurescreen/Addexpenditurescreen';
+import ExpenditureDetail from '../Screens/Common/Expenditurescreen/ExpenditureDetail';
 import ReceivePaymentScreen from '../Screens/Common/Collection/Receivepaymentscreen/Receivepaymentscreen';
 import TransactionsScreen from '../Screens/Common/Collection/Transactionsscreen/Transactionsscreen';
 import CollectionReportScreen from '../Screens/Common/Collection/Collectionreportscreen/Collectionreportscreen';
@@ -61,6 +62,7 @@ import AddLocalSecretaryScreen from '../Screens/Common/OrganizationStructure/Loc
 import UserAccessManagementScreen from '../Screens/Common/UserAccessManagementScreen/UserAccessManagementScreen';
 import ActivityLogsScreen from '../Screens/Common/ActivityLogsScreen/ActivityLogsScreen';
 import UnderDevelopmentScreen from '../Screens/UnderDevelopmentScreen/UnderDevelopmentScreen';
+import SelectMemberScreen from '../Screens/Common/Collection/Receivepaymentscreen/Selectmemberscreen';
 
 // Master screens
 import DesignationScreen from '../Screens/Master/Designation/Designation';
@@ -830,6 +832,8 @@ const AuthNavigation = () => {
 
       {/* Collection Screens */}
       <Stack.Screen name="Payment" component={ReceivePaymentScreen} />
+      <Stack.Screen name="SelectMemberScreen" component={SelectMemberScreen} />
+
       <Stack.Screen name="Transactions" component={TransactionsScreen} />
       <Stack.Screen name="Reports" component={CollectionReportScreen} />
       <Stack.Screen name="LedgerMembers" component={LedgerScreen} />
@@ -849,6 +853,7 @@ const AuthNavigation = () => {
       {/* Expenditure */}
       <Stack.Screen name="Expenditure" component={ExpenditureScreen} />
       <Stack.Screen name="AddExpenditure" component={AddExpenditureScreen} />
+      <Stack.Screen name="ExpenditureDetail" component={ExpenditureDetail} />
 
       {/* Wazifa Screens */}
       <Stack.Screen

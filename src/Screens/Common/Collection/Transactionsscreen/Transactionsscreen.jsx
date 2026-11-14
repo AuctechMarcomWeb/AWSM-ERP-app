@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,11 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -29,56 +33,23 @@ import {
 } from '../../../../components/Formparts';
 import AppLayout from '../../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../../components/BackHeader/BackHeader';
-
-// ---------------------------------------------------------------
-// Dummy data — replace with your API response
-// ---------------------------------------------------------------
-const MODES = ['All Modes', 'Cash', 'UPI', 'Cheque'];
-const FUND_TYPES = [
-  'All Fund Types',
-  'Corpus Fund',
-  'Ordinary Member',
-  'General Donation',
-  'Life Member',
-];
-
-const TRANSACTIONS = [
-  {
-    id: '1',
-    name: 'Mr. Mohammad Ali Shamsi',
-    fund: 'Corpus Fund',
-    amount: 500,
-    mode: 'Cash',
-    date: '2026-08-20',
-  },
-  {
-    id: '2',
-    name: 'Anonymous',
-    fund: 'Ordinary Member',
-    amount: 1500,
-    mode: 'UPI',
-    date: '2026-08-20',
-  },
-  {
-    id: '3',
-    name: 'Mr. Mohammad Ali Shamsi',
-    fund: 'General Donation',
-    amount: 200,
-    mode: 'Cash',
-    date: '2026-08-20',
-  },
-  {
-    id: '4',
-    name: 'Mr. Mohammad Ali Shamsi',
-    fund: 'Life Member',
-    amount: 200,
-    mode: 'Cash',
-    date: '2026-08-20',
-  },
-];
+import {
+  fetchTransactions,
+  getPaymentModes,
+  getFundTypes,
+} from '../../../../api/transactions';
 
 const TransactionsScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
+  const [transactions, setTransactions] = useState([]);
+  const [paymentModes, setPaymentModes] = useState(['All Modes']);
+  const [fundTypes, setFundTypes] = useState(['All Fund Types']);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10;
 
   // Applied filters state used for filtering list
   const [applied, setApplied] = useState({
@@ -87,6 +58,8 @@ const TransactionsScreen = ({ navigation }) => {
     fund: 'All Fund Types',
     from: null,
     to: null,
+    page: 1,
+    limit: 10,
   });
 
   // Modal open/close state
@@ -97,6 +70,128 @@ const TransactionsScreen = ({ navigation }) => {
   const [draftFund, setDraftFund] = useState('All Fund Types');
   const [draftFrom, setDraftFrom] = useState(null);
   const [draftTo, setDraftTo] = useState(null);
+
+  // Load payment modes and fund types on mount
+  useEffect(() => {
+    loadFiltersData();
+  }, []);
+
+  // Load transactions when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📱 Transactions screen focused - refreshing data');
+      setTransactions([]);
+      setHasMore(true);
+      loadTransactions(1, false);
+    }, [applied]),
+  );
+
+  const loadFiltersData = async () => {
+    try {
+      // Load payment modes
+      const modesRes = await getPaymentModes();
+      if (modesRes.success && modesRes.paymentModes) {
+        const modesList = [
+          'All Modes',
+          ...modesRes.paymentModes.map(m => m.name),
+        ];
+        setPaymentModes(modesList);
+        console.log('✅ Payment modes loaded:', modesList.length);
+      }
+
+      // Load fund types
+      const fundRes = await getFundTypes();
+      if (fundRes.success && fundRes.fundTypes) {
+        const fundsList = [
+          'All Fund Types',
+          ...fundRes.fundTypes.map(f => f.title),
+        ];
+        setFundTypes(fundsList);
+        console.log('✅ Fund types loaded:', fundsList.length);
+      }
+    } catch (error) {
+      console.error('❌ Error loading filters:', error);
+    }
+  };
+
+  const loadTransactions = async (pageNum = 1, shouldRefresh = false) => {
+    try {
+      if (shouldRefresh) {
+        setRefreshing(true);
+      } else if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const filters = {
+        page: pageNum,
+        limit: pageSize,
+        search: applied.search,
+        paymentMode: applied.mode !== 'All Modes' ? applied.mode : undefined,
+        fundType: applied.fund !== 'All Fund Types' ? applied.fund : undefined,
+        fromDate: applied.from
+          ? `${applied.from.getFullYear()}-${String(
+              applied.from.getMonth() + 1,
+            ).padStart(2, '0')}-${String(applied.from.getDate()).padStart(
+              2,
+              '0',
+            )}`
+          : undefined,
+        toDate: applied.to
+          ? `${applied.to.getFullYear()}-${String(
+              applied.to.getMonth() + 1,
+            ).padStart(2, '0')}-${String(applied.to.getDate()).padStart(2, '0')}`
+          : undefined,
+        sortBy: 'recent',
+      };
+
+      console.log('📋 Loading transactions with filters:', filters);
+
+      const response = await fetchTransactions(filters);
+
+      if (response.success) {
+        if (pageNum === 1) {
+          setTransactions(response.transactions);
+        } else {
+          setTransactions(prev => [...prev, ...response.transactions]);
+        }
+        
+        // Check if there are more items
+        setHasMore(response.transactions.length >= pageSize);
+        console.log('✅ Transactions loaded:', response.transactions.length);
+      } else {
+        Alert.alert('Error', response.message || 'Failed to load transactions');
+        if (pageNum === 1) {
+          setHasMore(false);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading transactions:', error);
+      Alert.alert('Error', 'Failed to load transactions');
+      if (pageNum === 1) {
+        setHasMore(false);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTransactions([]);
+    setHasMore(true);
+    loadTransactions(1, true);
+  }, [applied]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!loadingMore && !loading && hasMore) {
+      const nextPage = Math.floor(transactions.length / pageSize) + 1;
+      loadTransactions(nextPage, false);
+    }
+  }, [transactions.length, loadingMore, loading, hasMore, pageSize, applied]);
 
   const openFilter = () => {
     setDraftMode(applied.mode);
@@ -113,48 +208,86 @@ const TransactionsScreen = ({ navigation }) => {
       fund: draftFund,
       from: draftFrom,
       to: draftTo,
+      page: 1, // Reset to first page when filters change
     }));
     setFilterOpen(false);
   };
 
-  const data = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
+  const data = transactions;
 
-    return TRANSACTIONS.filter(t => {
-      if (applied.mode !== 'All Modes' && t.mode !== applied.mode) return false;
-      if (applied.fund !== 'All Fund Types' && t.fund !== applied.fund)
-        return false;
+  const formatTransactionDate = (dateStr) => {
+    try {
+      if (!dateStr) return 'N/A';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch (e) {
+      return 'N/A';
+    }
+  };
 
-      const d = toDateObj(t.date);
-      if (applied.from && d < startOfDay(applied.from)) return false;
-      if (applied.to && d > startOfDay(applied.to)) return false;
+  const renderItem = ({ item }) => {
+    const isExpanded = expandedId === item.id;
 
-      if (q && !t.name.toLowerCase().includes(q)) return false;
+    return (
+      <View style={styles.rowContainer}>
+        <TouchableOpacity
+          style={[styles.row, isExpanded && styles.rowExpanded]}
+          activeOpacity={0.8}
+          onPress={() => setExpandedId(isExpanded ? null : item.id)}
+        >
+          <View style={styles.dateBox}>
+            <Text style={styles.dateText}>{formatTransactionDate(item.date)}</Text>
+          </View>
 
-      return true;
-    });
-  }, [applied]);
+          <View style={styles.info}>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.memberName}
+            </Text>
+            <Text style={styles.fund} numberOfLines={1}>
+              {item.fundType}
+            </Text>
+            {isExpanded && (
+              <Text style={styles.collectedByExpanded} numberOfLines={2}>
+                📋 {item.collectedBy || 'N/A'}
+              </Text>
+            )}
+            {!isExpanded && (
+              <Text style={styles.collectedBy} numberOfLines={1}>
+                📋 {item.collectedBy || 'N/A'}
+              </Text>
+            )}
+          </View>
 
-  const renderItem = ({ item }) => (
-    <View style={styles.row}>
-      <View style={styles.dateBox}>
-        <Text style={styles.day}>{toDateObj(item.date).getDate()}</Text>
-        <Text style={styles.month}>{monthShort(item.date)}</Text>
+          <View style={styles.meta}>
+            <View style={styles.amountSection}>
+              <Text style={styles.amount}>{formatRs(item.amount)}</Text>
+              <Badge text={item.paymentMode} />
+            </View>
+            <Icon
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={24}
+              color="#6B7280"
+              style={styles.expandIcon}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <View style={styles.expandedContent}>
+            <Text style={styles.expandedLabel}>Collected By</Text>
+            <Text style={styles.expandedCollectedBy}>
+              {item.collectedBy || 'N/A'}
+            </Text>
+          </View>
+        )}
       </View>
-
-      <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={styles.fund}>{item.fund}</Text>
-      </View>
-
-      <View style={styles.meta}>
-        <Text style={styles.amount}>{formatRs(item.amount)}</Text>
-        <Badge text={item.mode} />
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <AppLayout>
@@ -167,49 +300,87 @@ const TransactionsScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={data}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={shared.scroll}
-              ListHeaderComponent={
-                <View style={styles.filters}>
-                  <Label text="Search" />
-                  <View style={styles.searchFilterRow}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search member..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
-                    </View>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator
+                  size="large"
+                  color={colors.primary}
+                  style={styles.loader}
+                />
+                <Text style={styles.loadingText}>Loading transactions...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={data}
+                keyExtractor={item => item.id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={shared.scroll}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={colors.primary}
+                  />
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
+                ListHeaderComponent={
+                  <View style={styles.filters}>
+                    <Label text="Search" />
+                    <View style={styles.searchFilterRow}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search member..."
+                          value={search}
+                          onChangeText={text => {
+                            setSearch(text);
+                            setApplied(prev => ({
+                              ...prev,
+                              search: text,
+                              page: 1,
+                            }));
+                            setTransactions([]);
+                            setHasMore(true);
+                          }}
+                        />
+                      </View>
 
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
-                      <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
-                      />
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={shared.empty}>
-                  <Icon name="swap-horizontal" size={46} color="#9CA3AF" />
-                  <Text style={shared.emptyText}>No transactions found</Text>
-                </View>
-              }
-            />
+                }
+                ListFooterComponent={
+                  loadingMore && hasMore ? (
+                    <View style={styles.footerLoader}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.footerText}>Loading more transactions...</Text>
+                    </View>
+                  ) : null
+                }
+                ListEmptyComponent={
+                  <View style={shared.empty}>
+                    <Icon
+                      name="swap-horizontal"
+                      size={46}
+                      color="#9CA3AF"
+                    />
+                    <Text style={shared.emptyText}>No transactions found</Text>
+                  </View>
+                }
+              />
+            )}
           </Body>
         </View>
 
@@ -234,7 +405,7 @@ const TransactionsScreen = ({ navigation }) => {
               <Label text="Payment Mode" />
               <Dropdown
                 value={draftMode}
-                options={MODES}
+                options={paymentModes}
                 onSelect={setDraftMode}
                 style={styles.modalGap}
               />
@@ -254,7 +425,7 @@ const TransactionsScreen = ({ navigation }) => {
               <Label text="Fund Type" />
               <Dropdown
                 value={draftFund}
-                options={FUND_TYPES}
+                options={fundTypes}
                 onSelect={setDraftFund}
                 style={styles.modalGap}
               />
@@ -284,6 +455,23 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: 'hidden',
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
+
+  loader: {
+    marginBottom: 16,
+  },
+
+  loadingText: {
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.medium,
+    color: '#6B7280',
   },
 
   filters: {
@@ -323,13 +511,81 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
+  rowContainer: {
+    marginBottom: 8,
+  },
+
+  rowExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
+
+  expandedContent: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E9EEEB',
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+
+  expandedLabel: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: '#4B5563',
+    marginBottom: 6,
+  },
+
+  expandedCollectedBy: {
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.semiBold,
+    color: '#111827',
+    lineHeight: 22,
+  },
+
+  expandedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9EEEB',
+  },
+
+  expandedLabel: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: '#4B5563',
+    flex: 1,
+  },
+
+  expandedValue: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+    color: '#111827',
+    flex: 1,
+    textAlign: 'right',
+  },
+
   dateBox: {
-    width: 46,
-    height: 50,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: '#EEF3F0',
     justifyContent: 'center',
     alignItems: 'center',
+    minWidth: 60,
+  },
+
+  dateText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: '#111827',
+    textAlign: 'center',
   },
 
   day: {
@@ -364,8 +620,34 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  collectedBy: {
+    fontSize: FontSize.xs,
+    fontFamily: FontFamily.regular,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+
+  collectedByExpanded: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+    color: '#374151',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+
   meta: {
     alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
+
+  amountSection: {
+    alignItems: 'flex-end',
+  },
+
+  expandIcon: {
+    marginLeft: 8,
   },
 
   amount: {
@@ -373,6 +655,21 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     color: '#111827',
     marginBottom: 4,
+  },
+
+  // Footer loader
+  footerLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+
+  footerText: {
+    marginLeft: 8,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: colors.primary,
   },
 
   // Filter modal styles
