@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -23,145 +25,29 @@ import {
   Dropdown,
   DateField,
   GreenButton,
+  GrayButton,
   Badge,
   formatRs,
-  longDate,
   toDateObj,
-  startOfDay,
   shared,
 } from '../../../../components/Formparts';
 
+import { fetchPaymentsList } from '../../../../api/collection';
+
 // ---------------------------------------------------------------
-// Filters & Data with All Fields
+// Filters & Data
 // ---------------------------------------------------------------
 const STATUSES = ['All Status', 'paid', 'pending', 'failed'];
 const GATEWAYS = ['All Gateways', 'payu', 'razorpay'];
 
-const PAYMENTS = [
-  {
-    id: '1',
-    sr: '1',
-    date: '2026-10-31',
-    name: 'kapil Thakur',
-    email: 'kapilthakur4666@gmail.com',
-    phone: '9520076803',
-    morhumeen: '-',
-    amount: 1,
-    fund: 'Dawami Member',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'pending',
-  },
-  {
-    id: '2',
-    sr: '2',
-    date: '2026-10-31',
-    name: 'kapil Thakur',
-    email: 'kapilthakur4666@gmail.com',
-    phone: '9520076803',
-    morhumeen: '-',
-    amount: 2000,
-    fund: 'Dawami Member',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'pending',
-  },
-  {
-    id: '3',
-    sr: '3',
-    date: '2026-10-18',
-    name: 'Ghulam Akbar',
-    email: 'ghulamakbar789025@gmail.com',
-    phone: '9259655076',
-    morhumeen: '-',
-    amount: 20000,
-    fund: 'Sahme-Imam(Khums)',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'paid',
-  },
-  {
-    id: '4',
-    sr: '4',
-    date: '2026-10-16',
-    name: 'Mir Afnaan Ali',
-    email: 'mirafnaanali07@gmail.com',
-    phone: '7760945492',
-    morhumeen: '-',
-    amount: 500,
-    fund: 'Sahme-Imam(Khums)',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'pending',
-  },
-  {
-    id: '5',
-    sr: '5',
-    date: '2026-10-13',
-    name: 'Faiz',
-    email: 'abbasabidi31@gmail.com',
-    phone: '8953624606',
-    morhumeen: '-',
-    amount: 100,
-    fund: 'Life Member',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'pending',
-  },
-  {
-    id: '6',
-    sr: '6',
-    date: '2026-10-09',
-    name: 'Mohd sunny',
-    email: 'Sunnycps141@gmail.com',
-    phone: '7454839137',
-    morhumeen: '-',
-    amount: 500,
-    fund: 'Ordinary Member',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'paid',
-  },
-  {
-    id: '7',
-    sr: '7',
-    date: '2026-10-03',
-    name: 'Mahmood Zamon Sadequian',
-    email: 'zamonmahmood71@gmail.com',
-    phone: '9321449607',
-    morhumeen: '-',
-    amount: 2000,
-    fund: 'Sahme-Sadat(khums)',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'paid',
-  },
-  {
-    id: '8',
-    sr: '8',
-    date: '2026-10-03',
-    name: 'Mahmood Zamon Sadequian',
-    email: 'zamonmahmood71@gmail.com',
-    phone: '9321449607',
-    morhumeen: '-',
-    amount: 2000,
-    fund: 'Sahme-Imam(Khums)',
-    gateway: 'payu',
-    mode: 'Online',
-    contributeType: 'Monthly',
-    status: 'paid',
-  },
-];
-
 const PaymentListScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10;
 
   // Applied filters state
   const [applied, setApplied] = useState({
@@ -180,6 +66,66 @@ const PaymentListScreen = ({ navigation }) => {
   const [draftGateway, setDraftGateway] = useState('All Gateways');
   const [draftFrom, setDraftFrom] = useState(null);
   const [draftTo, setDraftTo] = useState(null);
+
+  // Load payments on mount
+  useEffect(() => {
+    loadPayments(1);
+  }, []);
+
+  // Load payments whenever filters change
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    loadPayments(1);
+  }, [applied]);
+
+  const loadPayments = async (pageNum = 1, isRefresh = false) => {
+    if (pageNum === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const filters = {
+        page: pageNum,
+        limit: pageSize,
+        isPagination: true,
+        search: applied.search,
+        paymentStatus: applied.status !== 'All Status' ? applied.status : '',
+        paymentGateway:
+          applied.gateway !== 'All Gateways' ? applied.gateway : '',
+        fromDate: applied.from
+          ? toDateObj(applied.from).toISOString().split('T')[0]
+          : '',
+        toDate: applied.to
+          ? toDateObj(applied.to).toISOString().split('T')[0]
+          : '',
+      };
+
+      const result = await fetchPaymentsList(filters);
+      if (result.success) {
+        const newData = result.payments || [];
+
+        if (pageNum === 1) {
+          setPayments(newData);
+        } else {
+          setPayments(prev => [...prev, ...newData]);
+        }
+
+        setPage(pageNum);
+        setHasMore(newData.length === pageSize);
+      }
+    } catch (error) {
+      console.error('Error loading payments:', error);
+    } finally {
+      if (pageNum === 1) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  };
 
   const openFilter = () => {
     setDraftStatus(applied.status);
@@ -200,47 +146,74 @@ const PaymentListScreen = ({ navigation }) => {
     setFilterOpen(false);
   };
 
-  const data = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (applied.from) count++;
+    if (applied.to) count++;
+    if (applied.status !== 'All Status') count++;
+    if (applied.gateway !== 'All Gateways') count++;
+    return count;
+  };
 
-    return PAYMENTS.filter(p => {
-      if (applied.status !== 'All Status' && p.status !== applied.status)
-        return false;
-      if (applied.gateway !== 'All Gateways' && p.gateway !== applied.gateway)
-        return false;
+  const hasActiveFilters = getActiveFilterCount() > 0;
 
-      const d = toDateObj(p.date);
-      if (applied.from && d < startOfDay(applied.from)) return false;
-      if (applied.to && d > startOfDay(applied.to)) return false;
-
-      if (
-        q &&
-        !p.name.toLowerCase().includes(q) &&
-        !p.receipt.toLowerCase().includes(q) &&
-        !p.fund.toLowerCase().includes(q) &&
-        !p.phone.includes(q)
-      ) {
-        return false;
-      }
-
-      return true;
+  const resetFilter = () => {
+    setApplied({
+      search: '',
+      status: 'All Status',
+      gateway: 'All Gateways',
+      from: null,
+      to: null,
     });
-  }, [applied]);
+    setSearch('');
+    setDraftStatus('All Status');
+    setDraftGateway('All Gateways');
+    setDraftFrom(null);
+    setDraftTo(null);
+    setPayments([]);
+    setPage(1);
+    setHasMore(true);
+  };
 
-  const renderItem = ({ item, index }) => (
+  const handleLoadMore = () => {
+    if (hasMore && !loading && !loadingMore) {
+      loadPayments(page + 1);
+    }
+  };
+
+  const handleRefresh = () => {
+    setPage(1);
+    setHasMore(true);
+    loadPayments(1, true);
+  };
+
+  const renderItem = ({ item, index }) => {
+    const formatDate = (dateStr) => {
+      if (!dateStr) return 'N/A';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return 'N/A';
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+      } catch {
+        return 'N/A';
+      }
+    };
+
+    return (
     <View style={styles.row}>
       <View style={styles.cardHeader}>
         <View style={styles.srBadge}>
-          <Text style={styles.srText}>#{item.sr || index + 1}</Text>
+          <Text style={styles.srText}>#{index + 1}</Text>
         </View>
-        <Text style={styles.date}>{longDate(item.date)}</Text>
-        <Badge text={item.status} />
+        <Text style={styles.date}>{formatDate(item.date)}</Text>
+        <Badge text={item.paymentStatus} />
       </View>
 
       <View style={styles.cardBody}>
         <View style={styles.fieldRow}>
           <Text style={styles.fieldLabel}>Receipt No:</Text>
-          <Text style={styles.fieldValBold}>{item.receipt}</Text>
+          <Text style={styles.fieldValBold}>{item.receiptNo}</Text>
         </View>
 
         <View style={styles.fieldRow}>
@@ -257,19 +230,16 @@ const PaymentListScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.fieldRow}>
-          <Text style={styles.fieldLabel}>Morhumeen Name:</Text>
-          <Text style={styles.fieldVal}>{item.morhumeen}</Text>
-        </View>
-
-        <View style={styles.fieldRow}>
           <Text style={styles.fieldLabel}>Fund Type:</Text>
-          <Text style={styles.fundTypeTag}>{item.fund}</Text>
+          <Text style={styles.fundTypeTag}>
+            {item.fundType?.title || 'N/A'}
+          </Text>
         </View>
 
         <View style={styles.fieldRow}>
           <Text style={styles.fieldLabel}>Gateway / Mode:</Text>
           <Text style={styles.fieldVal}>
-            {item.gateway.toUpperCase()} / {item.mode}
+            {item.paymentGateway.toUpperCase()} / {item.paymentMode}
           </Text>
         </View>
 
@@ -284,7 +254,8 @@ const PaymentListScreen = ({ navigation }) => {
         <Text style={styles.amount}>{formatRs(item.amount)}</Text>
       </View>
     </View>
-  );
+    );
+  };
 
   return (
     <AppLayout>
@@ -297,50 +268,77 @@ const PaymentListScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={data}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={shared.scroll}
-              ListHeaderComponent={
-                <View style={styles.searchFilterContainer}>
-                  <View style={styles.searchFlex}>
-                    <SearchField
-                      placeholder="Search name, phone, receipt..."
-                      value={search}
-                      onChangeText={text => {
-                        setSearch(text);
-                        setApplied(prev => ({ ...prev, search: text }));
-                      }}
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.filterButton}
-                    activeOpacity={0.8}
-                    onPress={openFilter}
-                  >
-                    <Icon
-                      name="filter-variant"
-                      size={22}
-                      color={colors.white}
-                    />
-                  </TouchableOpacity>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={shared.empty}>
-                  <Icon
-                    name="credit-card-off-outline"
-                    size={46}
-                    color={colors.placeHolderColor}
+            {loading && payments.length === 0 ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading payments...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={payments}
+                keyExtractor={item => item._id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={shared.scroll}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={loading}
+                    onRefresh={handleRefresh}
+                    colors={[colors.primary]}
+                    tintColor={colors.primary}
                   />
-                  <Text style={shared.emptyText}>No payments found</Text>
-                </View>
-              }
-            />
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.2}
+                ListFooterComponent={
+                  loadingMore ? (
+                    <View style={styles.loadingMoreContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  ) : null
+                }
+                ListHeaderComponent={
+                  <View style={styles.searchFilterContainer}>
+                    <View style={styles.searchFlex}>
+                      <SearchField
+                        placeholder="Search name, phone, receipt..."
+                        value={search}
+                        onChangeText={text => {
+                          setSearch(text);
+                          setApplied(prev => ({ ...prev, search: text }));
+                        }}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.filterButton}
+                      activeOpacity={0.8}
+                      onPress={openFilter}
+                    >
+                      <Icon
+                        name="filter-variant"
+                        size={22}
+                        color={colors.white}
+                      />
+                      {hasActiveFilters && (
+                        <View style={styles.filterBadgeDot} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                }
+                ListEmptyComponent={
+                  <View style={shared.empty}>
+                    <Icon
+                      name="credit-card-off-outline"
+                      size={46}
+                      color={colors.placeHolderColor}
+                    />
+                    <Text style={shared.emptyText}>No payments found</Text>
+                  </View>
+                }
+              />
+            )}
           </Body>
         </View>
 
@@ -390,11 +388,21 @@ const PaymentListScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              <GreenButton
-                title="Apply"
-                onPress={applyFilter}
-                style={styles.applyButton}
-              />
+              <View style={styles.actionRow}>
+                <GreenButton
+                  title="Apply"
+                  onPress={applyFilter}
+                  style={styles.applyBtn}
+                />
+                <GrayButton
+                  title="Reset"
+                  onPress={() => {
+                    resetFilter();
+                    setFilterOpen(false);
+                  }}
+                  style={styles.resetBtn}
+                />
+              </View>
             </View>
           </TouchableOpacity>
         </Modal>
@@ -417,6 +425,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.medium,
+    color: colors.textSecondary,
+  },
+
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -437,6 +459,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   row: {
@@ -571,6 +612,22 @@ const styles = StyleSheet.create({
 
   modalGap: {
     marginBottom: 12,
+  },
+
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+
+  applyBtn: {
+    flex: 1,
+    marginRight: 8,
+    height: 48,
+  },
+
+  resetBtn: {
+    flex: 1,
+    height: 48,
   },
 
   applyButton: {

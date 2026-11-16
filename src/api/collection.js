@@ -416,6 +416,65 @@ export const getCollectionReport = async (filters = {}) => {
 };
 
 // ============================================================
+// 16. COLLECTION REPORT WITH PAGINATION & FILTERS
+// ============================================================
+export const fetchCollectionReportData = async (filters = {}) => {
+  try {
+    console.log('📊 Fetching collection report data...');
+    
+    const queryParams = {
+      page: filters.page || 1,
+      limit: filters.limit || 10,
+      ...(filters.fromDate && { fromDate: filters.fromDate }),
+      ...(filters.toDate && { toDate: filters.toDate }),
+      ...(filters.collectedBy && { collectedBy: filters.collectedBy }),
+      ...(filters.search && { search: filters.search }),
+    };
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    const response = await api.get(`payment-entry/collection-report?${queryString}`);
+    const data = response.data;
+    
+    if (data.statusCode === 200 && data.data) {
+      console.log('✅ Collection report fetched successfully');
+      return {
+        success: true,
+        docs: data.data?.docs || [],
+        fundTypes: data.data?.fundTypes || [],
+        grandTotals: data.data?.grandTotals || {},
+        overallTotal: data.data?.overallTotal || 0,
+        members: data.data?.members || [],
+        anonymousDonors: data.data?.Anonymousdonors || [],
+        total: data.data?.total || 0,
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch collection report',
+      docs: [],
+      fundTypes: [],
+      grandTotals: {},
+      overallTotal: 0,
+      members: [],
+      anonymousDonors: [],
+    };
+  } catch (error) {
+    console.error('❌ Error fetching collection report data:', error);
+    return {
+      success: false,
+      message: error.message || 'Error fetching collection report',
+      docs: [],
+      fundTypes: [],
+      grandTotals: {},
+      overallTotal: 0,
+      members: [],
+      anonymousDonors: [],
+    };
+  }
+};
+
+// ============================================================
 // 14. SEARCH MEMBERS BY NAME OR CODE
 // ============================================================
 export const searchMembers = async (searchTerm) => {
@@ -550,6 +609,156 @@ export const preparePaymentPayload = (formData) => {
 };
 
 // ============================================================
+// 19. GET REFERRAL LINK PEOPLE (Office Bearers, Executives, Secretaries)
+// ============================================================
+export const getReferralLinkPeople = async (filters = {}) => {
+  try {
+    console.log('👥 Fetching referral link people...');
+    
+    const queryParams = {
+      isPagination: filters.isPagination !== undefined ? filters.isPagination : false,
+      page: filters.page || 1,
+      limit: filters.limit || 100,
+      sortBy: filters.sortBy || 'recent',
+    };
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    
+    // Get data from three sources: office bearers, executives, and local secretaries
+    const [bearersResponse, executiveResponse, secretariesResponse] = await Promise.all([
+      api.get(`office-bearer?${queryString}`),
+      api.get(`executive-member?${queryString}`),
+      api.get(`local-secretary?${queryString}`),
+    ]);
+
+    const bearers = bearersResponse?.data?.data?.bearers || [];
+    const executives = executiveResponse?.data?.data?.members || [];
+    const secretaries = secretariesResponse?.data?.data?.members || [];
+
+    // Combine all into one list with proper formatting
+    const allPeople = [
+      ...bearers.map(b => ({
+        _id: b._id,
+        id: b._id,
+        name: b.name,
+        designation: b.designation?.name || 'Office Bearer',
+        city: b.city || '',
+        type: 'office-bearer',
+        phone: b.phone || b.mobileNumber || '',
+        source: 'office-bearer',
+      })),
+      ...executives.map(e => ({
+        _id: e._id,
+        id: e._id,
+        name: e.name,
+        designation: 'Executive Member',
+        city: e.city || '',
+        type: 'executive-member',
+        phone: e.phone || e.mobileNumber || '',
+        memberId: e.memberId,
+        source: 'executive-member',
+      })),
+      ...secretaries.map(s => ({
+        _id: s._id,
+        id: s._id,
+        name: s.name,
+        designation: 'Local Secretary',
+        city: s.city || '',
+        type: 'local-secretary',
+        phone: s.phone || s.mobileNumber || '',
+        memberId: s.memberId,
+        source: 'local-secretary',
+      })),
+    ];
+
+    console.log('✅ Referral people fetched successfully');
+    return {
+      success: true,
+      people: allPeople,
+      total: allPeople.length,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching referral people:', error);
+    return {
+      success: false,
+      message: error.message || 'Error fetching referral people',
+      people: [],
+      total: 0,
+    };
+  }
+};
+
+// ============================================================
+// 20. BUILD REFERRAL URL
+// ============================================================
+export const buildReferralUrl = (person, fundType = 'corpus') => {
+  const BASE_CORPUS = 'https://wazifaesadat.org/';
+  const BASE_MEMBERSHIP = 'https://wazifaesadat.in/MakeaDonationorPayKhums';
+  
+  const id = person?._id || person?.id || '';
+  const name = encodeURIComponent(person?.name || person?.fullName || '');
+  
+  if (fundType === 'membership' || fundType === 'donation') {
+    return `${BASE_MEMBERSHIP}?ref=${id}&refName=${name}`;
+  }
+  
+  // Default to corpus
+  return `${BASE_CORPUS}?ref=${id}&refName=${name}`;
+};
+
+// ============================================================
+// PAYMENTS API
+// ============================================================
+export const fetchPaymentsList = async (filters = {}) => {
+  try {
+    console.log('👤 Fetching payments list...');
+
+    const queryParams = {
+      page: filters.page || 1,
+      limit: filters.limit || 50,
+      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      search: filters.search || '',
+      paymentStatus: filters.paymentStatus || '',
+      paymentGateway: filters.paymentGateway || '',
+      fromDate: filters.fromDate || '',
+      toDate: filters.toDate || '',
+    };
+
+    // Remove empty params
+    Object.keys(queryParams).forEach(
+      key => !queryParams[key] && delete queryParams[key]
+    );
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    const response = await api.get(`payment?${queryString}`);
+
+    const payments = response?.data?.data?.data || [];
+    const total = response?.data?.data?.total || 0;
+    const totalPages = response?.data?.data?.totalPages || 1;
+    const currentPage = response?.data?.data?.currentPage || 1;
+
+    console.log('✅ Payments fetched successfully');
+    return {
+      success: true,
+      payments,
+      total,
+      totalPages,
+      currentPage,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching payments:', error);
+    return {
+      success: false,
+      message: error.message || 'Error fetching payments',
+      payments: [],
+      total: 0,
+      totalPages: 0,
+      currentPage: 1,
+    };
+  }
+};
+
+// ============================================================
 // HELPER: Format collectors for display (name + type)
 // ============================================================
 export const formatCollectorsForDisplay = (collectors) => {
@@ -571,4 +780,123 @@ export const formatFundTypesForDisplay = (fundTypes) => {
     title: f.title,
     amount: f.amount,
   }));
+};
+
+// ============================================================
+// 17. SEARCH SCHOLARSHIP FORMS / WAZIFA
+// ============================================================
+export const searchScholarshipForms = async (searchTerm = '', options = {}) => {
+  try {
+    console.log('🔍 Searching scholarship forms...');
+    
+    const queryParams = {
+      search: searchTerm,
+      isPagination: options.isPagination !== undefined ? options.isPagination : true,
+      limit: options.limit || 20,
+      sortBy: options.sortBy || 'recent',
+    };
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    const response = await api.get(`scholarshipForm?${queryString}`);
+    const data = response.data;
+    
+    if (data.statusCode === 200 && data.data?.forms) {
+      console.log('✅ Scholarship forms fetched successfully');
+      return {
+        success: true,
+        forms: data.data.forms,
+        currentPage: data.data.currentPage || 1,
+        totalPages: data.data.totalPages || 1,
+        total: data.data.total || 0,
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch scholarship forms',
+      forms: [],
+    };
+  } catch (error) {
+    console.error('❌ Error searching scholarship forms:', error);
+    return {
+      success: false,
+      message: error.message || 'Error searching scholarship forms',
+      forms: [],
+    };
+  }
+};
+
+// ============================================================
+// 18. FETCH WAZIFA LEDGER (Ledger of Wazifadar)
+// ============================================================
+export const fetchWazifaLedger = async (filters = {}) => {
+  try {
+    console.log('📊 Fetching wazifa ledger...');
+    
+    const queryParams = {
+      page: filters.page || 1,
+      limit: filters.limit || 50,
+      sortBy: filters.sortBy || 'recent',
+      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      paymentType: 'wazifaPayment',
+      ...(filters.search && { search: filters.search }),
+      ...(filters.wazifaNumber && { wazifaNumber: filters.wazifaNumber }),
+      ...(filters.paymentMode && { paymentMode: filters.paymentMode }),
+      ...(filters.status && { status: filters.status }),
+      ...(filters.fromDate && { fromDate: filters.fromDate }),
+      ...(filters.toDate && { toDate: filters.toDate }),
+    };
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    const response = await api.get(`payment-entry?${queryString}`);
+    const data = response.data;
+    
+    if (data.statusCode === 200 && data.data) {
+      console.log('✅ Wazifa ledger fetched successfully');
+      
+      // Calculate credit/debit totals
+      let totalCredit = 0;
+      let totalDebit = 0;
+      const ledgerData = data.data.data || [];
+      
+      ledgerData.forEach(row => {
+        const amount = Number(row.amount) || 0;
+        if (row.paymentEntryType === 'credit') {
+          totalCredit += amount;
+        } else if (row.paymentEntryType === 'debit') {
+          totalDebit += amount;
+        }
+      });
+
+      return {
+        success: true,
+        ledger: ledgerData,
+        currentPage: data.data.currentPage || 1,
+        totalPages: data.data.totalPages || 1,
+        total: data.data.total || 0,
+        totalCredit,
+        totalDebit,
+        balance: totalDebit - totalCredit,
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch wazifa ledger',
+      ledger: [],
+      totalCredit: 0,
+      totalDebit: 0,
+      balance: 0,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching wazifa ledger:', error);
+    return {
+      success: false,
+      message: error.message || 'Error fetching wazifa ledger',
+      ledger: [],
+      totalCredit: 0,
+      totalDebit: 0,
+      balance: 0,
+    };
+  }
 };

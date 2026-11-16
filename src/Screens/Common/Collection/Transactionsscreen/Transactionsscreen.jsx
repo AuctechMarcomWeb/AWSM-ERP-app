@@ -24,6 +24,7 @@ import {
   Dropdown,
   DateField,
   GreenButton,
+  GrayButton,
   Badge,
   formatRs,
   toDateObj,
@@ -213,6 +214,36 @@ const TransactionsScreen = ({ navigation }) => {
     setFilterOpen(false);
   };
 
+  const resetFilter = () => {
+    setDraftMode('All Modes');
+    setDraftFund('All Fund Types');
+    setDraftFrom(null);
+    setDraftTo(null);
+    setSearch('');
+    setApplied({
+      search: '',
+      mode: 'All Modes',
+      fund: 'All Fund Types',
+      from: null,
+      to: null,
+      page: 1,
+      limit: 10,
+    });
+    setFilterOpen(false);
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (applied.mode !== 'All Modes') count++;
+    if (applied.fund !== 'All Fund Types') count++;
+    if (applied.from) count++;
+    if (applied.to) count++;
+    if (applied.search) count++;
+    return count;
+  };
+
+  const hasActiveFilters = getActiveFilterCount() > 0;
+
   const data = transactions;
 
   const formatTransactionDate = (dateStr) => {
@@ -328,7 +359,6 @@ const TransactionsScreen = ({ navigation }) => {
                 onEndReachedThreshold={0.3}
                 ListHeaderComponent={
                   <View style={styles.filters}>
-                    <Label text="Search" />
                     <View style={styles.searchFilterRow}>
                       <View style={styles.searchFlex}>
                         <SearchField
@@ -357,6 +387,9 @@ const TransactionsScreen = ({ navigation }) => {
                           size={22}
                           color={colors.white}
                         />
+                        {hasActiveFilters && (
+                          <View style={styles.filterBadgeDot} />
+                        )}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -400,7 +433,12 @@ const TransactionsScreen = ({ navigation }) => {
               style={styles.filterSheet}
               onStartShouldSetResponder={() => true}
             >
-              <Text style={styles.filterTitle}>Filter Transactions</Text>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.filterTitle}>Filter Transactions</Text>
+                <TouchableOpacity onPress={() => setFilterOpen(false)}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
 
               <Label text="Payment Mode" />
               <Dropdown
@@ -430,11 +468,18 @@ const TransactionsScreen = ({ navigation }) => {
                 style={styles.modalGap}
               />
 
-              <GreenButton
-                title="Apply"
-                onPress={applyFilter}
-                style={styles.applyButton}
-              />
+              <View style={styles.actionRow}>
+                <GreenButton
+                  title="Apply"
+                  onPress={applyFilter}
+                  style={styles.applyBtn}
+                />
+                <GrayButton
+                  title="Reset"
+                  onPress={resetFilter}
+                  style={styles.resetBtn}
+                />
+              </View>
             </View>
           </TouchableOpacity>
         </Modal>
@@ -496,7 +541,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2, // aligns nicely with search input
+    marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
 
   row: {
@@ -687,15 +743,37 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
 
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
   filterTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
     color: '#123B28',
-    marginBottom: 14,
   },
 
   modalGap: {
     marginBottom: 12,
+  },
+
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+
+  applyBtn: {
+    flex: 1,
+    marginRight: 8,
+    height: 48,
+  },
+
+  resetBtn: {
+    flex: 1,
+    height: 48,
   },
 
   applyButton: {

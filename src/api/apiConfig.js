@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // const BASE_URL = 'https://api.wazifaesadat.org/api';
-const BASE_URL = 'http://192.168.1.21:5001/api';
+const BASE_URL = 'http://192.168.1.16:5001/api';
 
 let _cachedToken = null;
 

@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
+  FlatList,
   Modal,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,406 +24,31 @@ import {
   Dropdown,
   DateField,
   GreenButton,
+  GrayButton,
   PillTabs,
   formatNumber,
   shared,
 } from '../../../../components/Formparts';
+import { fetchCollectionReportData, getCollectors } from '../../../../api/collection';
 
 // ---------------------------------------------------------------
 // Tabs & Collectors
 // ---------------------------------------------------------------
 const TABS = ['Members', 'Income Exp.', 'Anonymous'];
-const COLLECTORS = [
-  'All Collected By',
-  'Head Office',
-  'Admin',
-  'Mr. Ehsaan Imam Abidi',
-  'Mr. S. Hashim Raza Rizvi',
-  'Mr. Syed Abbas Raza Rizvi',
-  'Mr. Syed Mazhar Haider Zaidi',
-];
-
-// ---------------------------------------------------------------
-// Complete Data Structure with All Fields Intact
-// ---------------------------------------------------------------
-const REPORT = {
-  Members: {
-    groups: [
-      {
-        title: 'Life Member',
-        rows: [
-          {
-            id: '1',
-            no: '6',
-            name: 'Mr. Mohammad Ali Shamsi',
-            collectedBy: 'Head Office',
-            fund: 'Life Member',
-            amount: 200,
-          },
-        ],
-      },
-      {
-        title: 'Ordinary Member',
-        rows: [
-          {
-            id: '1',
-            no: '6383',
-            name: 'Harsh Gond',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 250,
-          },
-          {
-            id: '2',
-            no: '3769',
-            name: 'Rocky Smith',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 200,
-          },
-          {
-            id: '3',
-            no: '4881',
-            name: 'Rocky Smith',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 200,
-          },
-          {
-            id: '4',
-            no: '3769',
-            name: 'Rocky Smith',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 650,
-          },
-          {
-            id: '5',
-            no: '3769',
-            name: 'Rocky Smith',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 500,
-          },
-          {
-            id: '6',
-            no: '6383',
-            name: 'Harsh Gond',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 500,
-          },
-          {
-            id: '7',
-            no: '70837',
-            name: 'Mrs. Zarina Aftab',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 500,
-          },
-          {
-            id: '8',
-            no: '6',
-            name: 'Mr. Mohammad Ali Shamsi',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 500,
-          },
-          {
-            id: '9',
-            no: '-',
-            name: 'Anonymous',
-            collectedBy: 'Head Office',
-            fund: 'Ordinary Member',
-            amount: 1500,
-          },
-        ],
-      },
-      {
-        title: 'Sarparsat Member',
-        rows: [
-          {
-            id: '1',
-            no: '3418',
-            name: 'Harsh Gond',
-            collectedBy: '-',
-            fund: 'Sarparsat Member',
-            amount: 200,
-          },
-          {
-            id: '2',
-            no: '3418',
-            name: 'Harsh Gond',
-            collectedBy: 'Mr. Syed Mazhar Haider Zaidi',
-            fund: 'Sarparsat Member',
-            amount: 500,
-          },
-          {
-            id: '3',
-            no: '6173',
-            name: 'Harsh Gond',
-            collectedBy: 'Mr. Ehsaan Imam Abidi',
-            fund: 'Sarparsat Member',
-            amount: 200,
-          },
-          {
-            id: '4',
-            no: '3418',
-            name: 'Harsh Gond',
-            collectedBy: 'Mr. Syed Abbas Raza Rizvi',
-            fund: 'Sarparsat Member',
-            amount: 1500,
-          },
-          {
-            id: '5',
-            no: '70837',
-            name: 'Mrs. Zarina Aftab',
-            collectedBy: 'Head Office',
-            fund: 'Sarparsat Member',
-            amount: 500,
-          },
-        ],
-      },
-    ],
-  },
-  'Income Exp.': {
-    groups: [
-      {
-        title: 'Income & Expenditure Breakdown',
-        rows: [
-          {
-            id: '1',
-            collectedBy: '-',
-            ord: 0,
-            life: 0,
-            dawami: 0,
-            sarp: 200,
-            mohsine: 0,
-            qarze: 0,
-            imam: 0,
-            sadat: 0,
-            gen: 200,
-            namzad: 0,
-            corp: 200,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 69000,
-            total: 69600,
-          },
-          {
-            id: '2',
-            collectedBy: '6a06feb5adccc39fb75cffc6',
-            ord: 0,
-            life: 0,
-            dawami: 0,
-            sarp: 0,
-            mohsine: 0,
-            qarze: 0,
-            imam: 0,
-            sadat: 0,
-            gen: 0,
-            namzad: 0,
-            corp: 200,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 0,
-            total: 200,
-          },
-          {
-            id: '3',
-            collectedBy: 'Admin',
-            ord: 0,
-            life: 0,
-            dawami: 0,
-            sarp: 0,
-            mohsine: 0,
-            qarze: 0,
-            imam: 0,
-            sadat: 0,
-            gen: 0,
-            namzad: 0,
-            corp: 500,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 0,
-            total: 500,
-          },
-          {
-            id: '4',
-            collectedBy: 'Head Office',
-            ord: 2300,
-            life: 0,
-            dawami: 0,
-            sarp: 0,
-            mohsine: 0,
-            qarze: 12281,
-            imam: 0,
-            sadat: 0,
-            gen: 650,
-            namzad: 0,
-            corp: 14100,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 0,
-            total: 29331,
-          },
-          {
-            id: '5',
-            collectedBy: 'Head Office',
-            ord: 2500,
-            life: 200,
-            dawami: 0,
-            sarp: 500,
-            mohsine: 0,
-            qarze: 0,
-            imam: 200,
-            sadat: 0,
-            gen: 200,
-            namzad: 0,
-            corp: 500,
-            calHadiya: 500,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 4600,
-            total: 4600,
-          },
-          {
-            id: '6',
-            collectedBy: 'Mr. Ehsaan Imam Abidi',
-            ord: 0,
-            life: 0,
-            dawami: 0,
-            sarp: 200,
-            mohsine: 0,
-            qarze: 0,
-            imam: 0,
-            sadat: 0,
-            gen: 0,
-            namzad: 0,
-            corp: 0,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 0,
-            total: 200,
-          },
-          {
-            id: '7',
-            collectedBy: 'Mr. S. Hashim Raza Rizvi',
-            ord: 0,
-            life: 0,
-            dawami: 0,
-            sarp: 0,
-            mohsine: 3000,
-            qarze: 0,
-            imam: 0,
-            sadat: 0,
-            gen: 0,
-            namzad: 0,
-            corp: 0,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 0,
-            total: 3000,
-          },
-          {
-            id: '8',
-            collectedBy: 'Mr. Syed Abbas Raza Rizvi',
-            ord: 0,
-            life: 0,
-            dawami: 0,
-            sarp: 1500,
-            mohsine: 0,
-            qarze: 0,
-            imam: 0,
-            sadat: 0,
-            gen: 0,
-            namzad: 0,
-            corp: 0,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 0,
-            total: 1500,
-          },
-          {
-            id: '9',
-            collectedBy: 'Mr. Syed Mazhar Haider Zaidi',
-            ord: 0,
-            life: 0,
-            dawami: 0,
-            sarp: 500,
-            mohsine: 0,
-            qarze: 0,
-            imam: 0,
-            sadat: 0,
-            gen: 0,
-            namzad: 0,
-            corp: 0,
-            calHadiya: 0,
-            magHadiya: 0,
-            calAd: 0,
-            magAd: 0,
-            schol: 0,
-            total: 500,
-          },
-        ],
-      },
-    ],
-  },
-  Anonymous: {
-    groups: [
-      {
-        title: 'Anonymous / Unregistered Donors',
-        rows: [
-          {
-            id: '1',
-            donorName: '-',
-            collectedBy: 'Head Office',
-            receiptNo: '814333',
-            amount: 200,
-          },
-          {
-            id: '2',
-            donorName: '-',
-            collectedBy: 'Head Office',
-            receiptNo: '797474',
-            amount: 1500,
-          },
-          {
-            id: '3',
-            donorName: 'Anonymous',
-            collectedBy: 'Head Office',
-            receiptNo: '1201',
-            amount: 650,
-          },
-          {
-            id: '4',
-            donorName: 'Anonymous',
-            collectedBy: 'Head Office',
-            receiptNo: 'RCPT_1786032262891',
-            amount: 1500,
-          },
-        ],
-      },
-    ],
-  },
-};
 
 const CollectionReportScreen = ({ navigation }) => {
+  // API Data states
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [reportData, setReportData] = useState(null);
+  const [collectors, setCollectors] = useState([]);
+  const [collectorNames, setCollectorNames] = useState(['All Collected By']);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10;
+
+  // UI states
   const [tab, setTab] = useState('Members');
   const [search, setSearch] = useState('');
 
@@ -437,7 +64,119 @@ const CollectionReportScreen = ({ navigation }) => {
   const [draftTo, setDraftTo] = useState(null);
   const [draftCollector, setDraftCollector] = useState('All Collected By');
 
-  const config = REPORT[tab];
+  // Load collectors and initial data
+  useEffect(() => {
+    loadCollectors();
+    loadReportData();
+  }, []);
+
+  // Reload report data when filters change
+  useEffect(() => {
+    setPage(1);
+    setReportData(null);
+    setHasMore(true);
+    loadReportData(1);
+  }, [applied]);
+
+  const loadCollectors = async () => {
+    try {
+      const result = await getCollectors();
+      if (result.success) {
+        const names = result.collectors.map(c => c.name);
+        setCollectors(result.collectors);
+        setCollectorNames(['All Collected By', ...names]);
+      }
+    } catch (error) {
+      console.error('Error loading collectors:', error);
+    }
+  };
+
+  const loadReportData = async (pageNum = 1, shouldRefresh = false) => {
+    try {
+      if (shouldRefresh) {
+        setRefreshing(true);
+      } else if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const filters = {
+        page: pageNum,
+        limit: pageSize,
+        fromDate: applied.from ? formatDateForAPI(applied.from) : '',
+        toDate: applied.to ? formatDateForAPI(applied.to) : '',
+        collectedBy: applied.collector !== 'All Collected By' ? applied.collector : '',
+        search: applied.search,
+      };
+
+      const result = await fetchCollectionReportData(filters);
+      if (result.success) {
+        if (pageNum === 1) {
+          setReportData(result);
+        } else {
+          // Merge data for pagination
+          setReportData(prev => {
+            if (!prev) return result;
+            return {
+              ...result,
+              members: [...(prev.members || []), ...(result.members || [])],
+              docs: [...(prev.docs || []), ...(result.docs || [])],
+              anonymousDonors: [...(prev.anonymousDonors || []), ...(result.anonymousDonors || [])],
+            };
+          });
+        }
+        
+        // Check if more pages available
+        const dataLength = (result.members || result.docs || result.anonymousDonors || []).length;
+        setHasMore(dataLength >= pageSize);
+        setPage(pageNum);
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+      if (pageNum === 1) {
+        setHasMore(false);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setPage(1);
+    setReportData(null);
+    setHasMore(true);
+    loadReportData(1, true);
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && !loading && hasMore) {
+      loadReportData(page + 1, false);
+    }
+  };
+
+  const formatDateForAPI = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (applied.from) count++;
+    if (applied.to) count++;
+    if (applied.collector !== 'All Collected By') count++;
+    if (applied.search) count++;
+    return count;
+  };
+
+  const hasActiveFilters = getActiveFilterCount() > 0;
 
   const openFilter = () => {
     setDraftFrom(applied.from);
@@ -456,42 +195,87 @@ const CollectionReportScreen = ({ navigation }) => {
     setFilterOpen(false);
   };
 
+  const resetFilter = () => {
+    setApplied({
+      search: '',
+      from: null,
+      to: null,
+      collector: 'All Collected By',
+    });
+    setSearch('');
+  };
+
   const groups = useMemo(() => {
+    if (!reportData) return [];
+
     const q = applied.search.trim().toLowerCase();
 
-    return config.groups
-      .map(g => ({
-        ...g,
-        rows: g.rows.filter(r => {
-          if (tab === 'Income Exp.') {
-            const matchesCollector =
-              applied.collector === 'All Collected By' ||
-              r.collectedBy === applied.collector;
-            const matchesSearch = !q || r.collectedBy.toLowerCase().includes(q);
-            return matchesCollector && matchesSearch;
-          } else if (tab === 'Anonymous') {
+    if (tab === 'Members') {
+      // Group members by type
+      const grouped = {};
+      (reportData.members || []).forEach(member => {
+        const type = member.memberType || 'Other';
+        if (!grouped[type]) {
+          grouped[type] = [];
+        }
+        grouped[type].push(member);
+      });
+
+      return Object.entries(grouped)
+        .map(([type, rows]) => ({
+          title: type,
+          rows: rows.filter(r => {
             const matchesSearch =
               !q ||
-              r.donorName.toLowerCase().includes(q) ||
-              r.receiptNo.toLowerCase().includes(q);
+              (r.memberName && r.memberName.toLowerCase().includes(q)) ||
+              (r.memberCode && r.memberCode.toLowerCase().includes(q));
             const matchesCollector =
               applied.collector === 'All Collected By' ||
               r.collectedBy === applied.collector;
             return matchesSearch && matchesCollector;
-          } else {
+          }),
+        }))
+        .filter(g => g.rows.length > 0);
+    } else if (tab === 'Income Exp.') {
+      // Income & Expenditure summary
+      return [
+        {
+          title: 'Income & Expenditure Summary',
+          rows: (reportData.docs || []).filter(r => {
             const matchesSearch =
-              !q ||
-              r.name.toLowerCase().includes(q) ||
-              r.no.toLowerCase().includes(q);
+              !q || (r.collectedBy && r.collectedBy.toLowerCase().includes(q));
             const matchesCollector =
               applied.collector === 'All Collected By' ||
               r.collectedBy === applied.collector;
             return matchesSearch && matchesCollector;
-          }
-        }),
-      }))
-      .filter(g => g.rows.length > 0);
-  }, [config, applied, tab]);
+          }),
+        },
+      ].filter(g => g.rows.length > 0);
+    } else if (tab === 'Anonymous') {
+      // Anonymous donors
+      return [
+        {
+          title: 'Anonymous / Unregistered Donors',
+          rows: (reportData.anonymousDonors || []).reduce((acc, donor) => {
+            if (donor.data && Array.isArray(donor.data)) {
+              return [
+                ...acc,
+                ...donor.data.filter(d => {
+                  const matchesCollector =
+                    applied.collector === 'All Collected By' ||
+                    d.collectedBy === applied.collector;
+                  return matchesCollector;
+                }),
+              ];
+            }
+            return acc;
+          }, []),
+        },
+      ].filter(g => g.rows.length > 0);
+    }
+
+    return [];
+  }, [reportData, applied, tab]);
 
   const grandTotal = useMemo(() => {
     return groups.reduce(
@@ -500,6 +284,129 @@ const CollectionReportScreen = ({ navigation }) => {
       0,
     );
   }, [groups]);
+
+  const flatListData = useMemo(() => {
+    const items = [];
+    groups.forEach((group, idx) => {
+      items.push({ type: 'header', group, key: `header-${idx}` });
+      group.rows.forEach((row, rowIdx) => {
+        items.push({ type: 'card', group: group.title, row, rowIdx, key: `card-${idx}-${rowIdx}` });
+      });
+      const groupTotal = group.rows.reduce((s, r) => s + (r.amount || r.total || 0), 0);
+      items.push({ type: 'total', group: group.title, total: groupTotal, key: `total-${idx}` });
+    });
+    if (groups.length > 0) {
+      items.push({ type: 'grandtotal', total: grandTotal, key: 'grandtotal' });
+    }
+    return items;
+  }, [groups, grandTotal]);
+
+  const renderFlatListItem = ({ item }) => {
+    if (item.type === 'header') {
+      return (
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{item.group.title}</Text>
+        </View>
+      );
+    }
+
+    if (item.type === 'card') {
+      const r = item.row;
+      return (
+        <View style={styles.cardItem}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardIndex}>#{item.rowIdx + 1}</Text>
+            <Text style={styles.cardAmount}>
+              ₹ {formatNumber(r.amount || r.total || 0)}
+            </Text>
+          </View>
+
+          {tab === 'Income Exp.' ? (
+            <View style={styles.cardBody}>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Collected By:</Text>
+                <Text style={styles.fieldValue}>{r.collectedBy}</Text>
+              </View>
+              {Object.entries(r).map(([key, value]) => {
+                if (
+                  key !== 'collectedBy' &&
+                  key !== 'total' &&
+                  key !== '_id' &&
+                  key !== 'id' &&
+                  key !== 'srNo' &&
+                  key !== 'collectedByMemberId' &&
+                  value > 0
+                ) {
+                  const fieldName = (reportData?.fundTypes || []).find(f => f.title === key)?.title || key;
+                  return value > 0 ? (
+                    <View key={key} style={styles.cardField}>
+                      <Text style={styles.fieldLabel}>{fieldName}:</Text>
+                      <Text style={styles.fieldValue}>₹ {formatNumber(value)}</Text>
+                    </View>
+                  ) : null;
+                }
+                return null;
+              })}
+            </View>
+          ) : tab === 'Anonymous' ? (
+            <View style={styles.cardBody}>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Donor Name:</Text>
+                <Text style={styles.fieldValue}>{r.donorName || '-'}</Text>
+              </View>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Collected By:</Text>
+                <Text style={styles.fieldValue}>{r.collectedBy}</Text>
+              </View>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Receipt No:</Text>
+                <Text style={styles.fieldValue}>{r.receiptNo}</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.cardBody}>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Member No:</Text>
+                <Text style={styles.fieldValue}>{r.memberCode || '-'}</Text>
+              </View>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Name:</Text>
+                <Text style={styles.fieldValue}>{r.memberName}</Text>
+              </View>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Collected By:</Text>
+                <Text style={styles.fieldValue}>{r.collectedBy}</Text>
+              </View>
+              <View style={styles.cardField}>
+                <Text style={styles.fieldLabel}>Fund Type:</Text>
+                <Text style={styles.fieldValue}>{r.fundType || r.memberType}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    if (item.type === 'total') {
+      return (
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>TOTAL ({item.group})</Text>
+          <Text style={styles.totalValue}>₹ {formatNumber(item.total)}</Text>
+        </View>
+      );
+    }
+
+    if (item.type === 'grandtotal') {
+      return (
+        <View style={styles.grandTotalCard}>
+          <Text style={styles.grandTotalLabel}>Grand Total</Text>
+          <Text style={styles.grandTotalValue}>₹ {formatNumber(item.total)}</Text>
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <AppLayout>
@@ -512,258 +419,75 @@ const CollectionReportScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={shared.scroll}
-            >
-              <PillTabs tabs={TABS} active={tab} onChange={setTab} />
-
-              {/* Search & Filter Row */}
-              <View style={styles.searchFilterContainer}>
-                <View style={styles.searchFlex}>
-                  <SearchField
-                    placeholder="Search..."
-                    value={search}
-                    onChangeText={text => {
-                      setSearch(text);
-                      setApplied(prev => ({ ...prev, search: text }));
-                    }}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.filterButton}
-                  activeOpacity={0.8}
-                  onPress={openFilter}
-                >
-                  <Icon name="filter-variant" size={22} color={colors.white} />
-                </TouchableOpacity>
+            {loading && !reportData ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading report...</Text>
               </View>
-
-              {/* Groups & Card Layout */}
-              {groups.length === 0 && (
-                <View style={shared.empty}>
-                  <Icon
-                    name="chart-bar"
-                    size={46}
-                    color={colors.placeHolderColor}
+            ) : (
+              <FlatList
+                data={flatListData}
+                keyExtractor={item => item.key}
+                renderItem={renderFlatListItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={shared.scroll}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={colors.primary}
                   />
-                  <Text style={shared.emptyText}>No records found</Text>
-                </View>
-              )}
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
+                ListHeaderComponent={
+                  <View>
+                    <PillTabs tabs={TABS} active={tab} onChange={setTab} />
 
-              {groups.map(g => {
-                const groupTotal = g.rows.reduce(
-                  (s, r) => s + (r.amount || r.total || 0),
-                  0,
-                );
-
-                return (
-                  <Section key={g.title} title={g.title} style={styles.group}>
-                    {g.rows.map((r, i) => (
-                      <View key={r.id || i} style={styles.cardItem}>
-                        <View style={styles.cardHeader}>
-                          <Text style={styles.cardIndex}>#{i + 1}</Text>
-                          <Text style={styles.cardAmount}>
-                            ₹ {formatNumber(r.amount || r.total || 0)}
-                          </Text>
-                        </View>
-
-                        {tab === 'Income Exp.' ? (
-                          <View style={styles.cardBody}>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>
-                                Collected By:
-                              </Text>
-                              <Text style={styles.fieldValue}>
-                                {r.collectedBy}
-                              </Text>
-                            </View>
-                            {r.ord > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Ordinary Member:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.ord)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.life > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Life Member:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.life)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.dawami > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Dawami Member:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.dawami)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.sarp > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Sarparsat Member:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.sarp)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.mohsine > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Mohsine Member:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.mohsine)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.qarze > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Return of Qarze Hasna:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.qarze)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.imam > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Sahme-Imam(Khums):
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.imam)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.gen > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  General Donation:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.gen)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.corp > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Corpus Fund:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.corp)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.calHadiya > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Calendar Hadiya:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.calHadiya)}
-                                </Text>
-                              </View>
-                            )}
-                            {r.schol > 0 && (
-                              <View style={styles.cardField}>
-                                <Text style={styles.fieldLabel}>
-                                  Scholarship Pay:
-                                </Text>
-                                <Text style={styles.fieldValue}>
-                                  ₹ {formatNumber(r.schol)}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        ) : tab === 'Anonymous' ? (
-                          <View style={styles.cardBody}>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>Donor Name:</Text>
-                              <Text style={styles.fieldValue}>
-                                {r.donorName}
-                              </Text>
-                            </View>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>
-                                Collected By:
-                              </Text>
-                              <Text style={styles.fieldValue}>
-                                {r.collectedBy}
-                              </Text>
-                            </View>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>Receipt No:</Text>
-                              <Text style={styles.fieldValue}>
-                                {r.receiptNo}
-                              </Text>
-                            </View>
-                          </View>
-                        ) : (
-                          <View style={styles.cardBody}>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>Member No:</Text>
-                              <Text style={styles.fieldValue}>{r.no}</Text>
-                            </View>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>Name:</Text>
-                              <Text style={styles.fieldValue}>{r.name}</Text>
-                            </View>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>
-                                Collected By:
-                              </Text>
-                              <Text style={styles.fieldValue}>
-                                {r.collectedBy}
-                              </Text>
-                            </View>
-                            <View style={styles.cardField}>
-                              <Text style={styles.fieldLabel}>Fund Type:</Text>
-                              <Text style={styles.fieldValue}>
-                                {r.fund || g.title}
-                              </Text>
-                            </View>
-                          </View>
-                        )}
+                    {/* Search & Filter Row */}
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search..."
+                          value={search}
+                          onChangeText={text => {
+                            setSearch(text);
+                            setApplied(prev => ({ ...prev, search: text }));
+                          }}
+                        />
                       </View>
-                    ))}
 
-                    {/* Group Total Footer */}
-                    <View style={styles.totalRow}>
-                      <Text style={styles.totalLabel}>TOTAL ({g.title})</Text>
-                      <Text style={styles.totalValue}>
-                        ₹ {formatNumber(groupTotal)}
-                      </Text>
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon name="filter-variant" size={22} color={colors.white} />
+                        {hasActiveFilters && (
+                          <View style={styles.filterBadgeDot} />
+                        )}
+                      </TouchableOpacity>
                     </View>
-                  </Section>
-                );
-              })}
-
-              {/* Grand Total Footer Card */}
-              {groups.length > 0 && (
-                <View style={styles.grandTotalCard}>
-                  <Text style={styles.grandTotalLabel}>Grand Total</Text>
-                  <Text style={styles.grandTotalValue}>
-                    ₹ {formatNumber(grandTotal)}
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
+                  </View>
+                }
+                ListFooterComponent={
+                  loadingMore && hasMore ? (
+                    <View style={styles.footerLoader}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.footerText}>Loading more records...</Text>
+                    </View>
+                  ) : null
+                }
+                ListEmptyComponent={
+                  !loading ? (
+                    <View style={shared.empty}>
+                      <Icon name="chart-bar" size={46} color={colors.placeHolderColor} />
+                      <Text style={shared.emptyText}>No records found</Text>
+                    </View>
+                  ) : null
+                }
+              />
+            )}
           </Body>
         </View>
 
@@ -783,7 +507,20 @@ const CollectionReportScreen = ({ navigation }) => {
               style={styles.filterSheet}
               onStartShouldSetResponder={() => true}
             >
-              <Text style={styles.filterTitle}>Filter Collection Reports</Text>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.filterTitle}>Filter Collection Reports</Text>
+                <TouchableOpacity onPress={() => setFilterOpen(false)}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Label text="Collected By" />
+              <Dropdown
+                value={draftCollector}
+                options={collectorNames}
+                onSelect={setDraftCollector}
+                style={styles.modalGap}
+              />
 
               <View style={[shared.row, styles.modalDateRow]}>
                 <View style={shared.colL}>
@@ -797,19 +534,18 @@ const CollectionReportScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              <Label text="Collected By" />
-              <Dropdown
-                value={draftCollector}
-                options={COLLECTORS}
-                onSelect={setDraftCollector}
-                style={styles.modalGap}
-              />
-
-              <GreenButton
-                title="Apply"
-                onPress={applyFilter}
-                style={styles.applyButton}
-              />
+              <View style={styles.actionRow}>
+                <GreenButton
+                  title="Apply"
+                  onPress={applyFilter}
+                  style={styles.applyBtn}
+                />
+                <GrayButton
+                  title="Reset"
+                  onPress={resetFilter}
+                  style={styles.resetBtn}
+                />
+              </View>
             </View>
           </TouchableOpacity>
         </Modal>
@@ -832,6 +568,27 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.medium,
+    color: colors.textSecondary,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.medium,
+    color: colors.textSecondary,
+  },
+
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -852,6 +609,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  resetButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: colors.danger || '#FF4444',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+    marginLeft: 8,
   },
 
   group: {
@@ -977,24 +746,74 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
 
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
   filterTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
     color: colors.TitleColor,
-    marginBottom: 14,
-  },
-
-  modalDateRow: {
-    marginBottom: 4,
   },
 
   modalGap: {
     marginBottom: 12,
   },
 
-  applyButton: {
+  modalDateRow: {
+    marginBottom: 12,
+  },
+
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+
+  applyBtn: {
+    flex: 1,
+    marginRight: 8,
     height: 48,
-    marginTop: 14,
+  },
+
+  resetBtn: {
+    flex: 1,
+    height: 48,
+  },
+
+  footerLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+
+  footerText: {
+    marginLeft: 8,
+    fontSize: FontSize.base,
+    fontFamily: FontFamily.regular,
+    color: colors.primary,
+  },
+
+  sectionHeader: {
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+  },
+
+  sectionTitle: {
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.bold,
+    color: '#111827',
   },
 });
 
