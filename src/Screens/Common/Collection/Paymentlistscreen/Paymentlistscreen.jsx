@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -70,6 +70,7 @@ const PaymentListScreen = ({ navigation }) => {
   // Load payments on mount
   useEffect(() => {
     loadPayments(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load payments whenever filters change
@@ -77,6 +78,7 @@ const PaymentListScreen = ({ navigation }) => {
     setPage(1);
     setHasMore(true);
     loadPayments(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applied]);
 
   const loadPayments = async (pageNum = 1, isRefresh = false) => {

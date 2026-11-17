@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Modal,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -23,9 +24,12 @@ import {
   GreenButton,
   GrayButton,
   Badge,
-  shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import {
+  fetchMembersList,
+  fetchMembershipDashboard,
+} from '../../../../api/member';
 
 const MEMBER_TYPES = [
   'All Types',
@@ -33,145 +37,24 @@ const MEMBER_TYPES = [
   'Life Member',
   'Dawami Member',
   'Sarparast Member',
-  'Mohsine Member',
+  'Mohsine member',
 ];
 
-const MEMBER_STATUSES = ['All Status', 'Active', 'Suspended', 'Expired'];
-
-const MEMBERS_DATA = [
-  {
-    id: '1',
-    membershipDate: '-',
-    uniqueId: 'OR2890',
-    fullName: 'Syed Haider Naqvi',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    membershipDate: '-',
-    uniqueId: 'OR8042',
-    fullName: 'Syed Raza Husain Zaidi',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    membershipDate: '-',
-    uniqueId: 'OR2630',
-    fullName: 'Nawab Syed Mohd Sadiq Safvi',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    membershipDate: '-',
-    uniqueId: 'OR1713',
-    fullName: 'Late Syed Zawwar Ali',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '5',
-    membershipDate: '-',
-    uniqueId: 'OR3655',
-    fullName: 'Late Haji Syedul Abidin',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '6',
-    membershipDate: '-',
-    uniqueId: 'OR1874',
-    fullName: 'Late Wakaf Ghulam Husain',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '7',
-    membershipDate: '-',
-    uniqueId: 'OR5950',
-    fullName: 'Syed Ghayoor Husain Bilgrami',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '8',
-    membershipDate: '-',
-    uniqueId: 'OR7775',
-    fullName: 'Late Syed Mujtaba Husain',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '9',
-    membershipDate: '-',
-    uniqueId: 'OR2866',
-    fullName: 'Late Maulana Syed Ibney Hasan',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '10',
-    membershipDate: '-',
-    uniqueId: 'OR4047',
-    fullName: 'Late Ahmad Ismail Jafri',
-    memberType: 'Ordinary Member',
-    introducedBy: '-',
-    status: 'Active',
-  },
-];
-
-const STATS_CARDS = [
-  {
-    title: 'Ordinary Member',
-    total: '1,805',
-    active: '1,805',
-    suspended: '0',
-    expired: '0',
-  },
-  {
-    title: 'Life Member',
-    total: '3,998',
-    active: '3,998',
-    suspended: '0',
-    expired: '0',
-  },
-  {
-    title: 'Dawami Member',
-    total: '3,351',
-    active: '3,351',
-    suspended: '0',
-    expired: '0',
-  },
-  {
-    title: 'Sarparast Member',
-    total: '7',
-    active: '0',
-    suspended: '0',
-    expired: '0',
-  },
-  {
-    title: 'Mohsine member',
-    total: '155',
-    active: '155',
-    suspended: '0',
-    expired: '0',
-  },
+const MEMBER_STATUSES = [
+  'All Status',
+  'Active',
+  'TimeBar',
+  'Suspended',
+  'Expired',
 ];
 
 const MembershipScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [members, setMembers] = useState([]);
+  const [statsCards, setStatsCards] = useState([]);
 
   // Applied Filters
   const [applied, setApplied] = useState({
@@ -183,6 +66,119 @@ const MembershipScreen = ({ navigation }) => {
   // Draft Filters in Modal
   const [draftType, setDraftType] = useState('All Types');
   const [draftStatus, setDraftStatus] = useState('All Status');
+
+  // Debounce timer
+  const debounceTimer = useRef(null);
+
+  // Fetch dashboard stats
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  // Fetch members when applied filters change
+  useEffect(() => {
+    fetchMembers();
+  }, [applied, fetchMembers]);
+
+  const fetchStats = async () => {
+    try {
+      const result = await fetchMembershipDashboard();
+      if (result.success && result.stats) {
+        const stats = result.stats;
+        const cards = [
+          {
+            title: 'Ordinary Member',
+            total: stats['Ordinary Member']?.total || 0,
+            active: stats['Ordinary Member']?.active || 0,
+            suspended: stats['Ordinary Member']?.suspended || 0,
+            expired: stats['Ordinary Member']?.expired || 0,
+          },
+          {
+            title: 'Life Member',
+            total: stats['Life Member']?.total || 0,
+            active: stats['Life Member']?.active || 0,
+            suspended: stats['Life Member']?.suspended || 0,
+            expired: stats['Life Member']?.expired || 0,
+          },
+          {
+            title: 'Dawami Member',
+            total: stats['Dawami Member']?.total || 0,
+            active: stats['Dawami Member']?.active || 0,
+            suspended: stats['Dawami Member']?.suspended || 0,
+            expired: stats['Dawami Member']?.expired || 0,
+          },
+          {
+            title: 'Sarparast Member',
+            total: stats['Sarparast Member']?.total || 0,
+            active: stats['Sarparast Member']?.active || 0,
+            suspended: stats['Sarparast Member']?.suspended || 0,
+            expired: stats['Sarparast Member']?.expired || 0,
+          },
+          {
+            title: 'Mohsine member',
+            total: stats['Mohsine member']?.total || 0,
+            active: stats['Mohsine member']?.active || 0,
+            suspended: stats['Mohsine member']?.suspended || 0,
+            expired: stats['Mohsine member']?.expired || 0,
+          },
+        ];
+        setStatsCards(cards);
+      }
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  };
+
+  const fetchMembers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const filters = {
+        search: applied.search || '',
+        memberType:
+          applied.memberType !== 'All Types' ? applied.memberType : '',
+        status: applied.status !== 'All Status' ? applied.status : '',
+        page: 1,
+        limit: 50,
+        isPagination: true,
+      };
+
+      const result = await fetchMembersList(filters);
+
+      if (result.success) {
+        setMembers(result.members);
+        if (result.members.length === 0) {
+          setError('No members found');
+        }
+      } else {
+        setError(result.message || 'Failed to fetch members');
+        setMembers([]);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setError('Error fetching members');
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [applied]);
+
+  const handleSearchChange = text => {
+    setSearch(text);
+
+    // Debounce search (400ms)
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setApplied(prev => ({
+        ...prev,
+        search: text,
+      }));
+    }, 400);
+  };
 
   const openFilter = () => {
     setDraftType(applied.memberType);
@@ -210,34 +206,21 @@ const MembershipScreen = ({ navigation }) => {
     });
   };
 
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return MEMBERS_DATA.filter(item => {
-      if (
-        applied.memberType !== 'All Types' &&
-        item.memberType !== applied.memberType
-      )
-        return false;
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
-
-      if (
-        q &&
-        !item.fullName.toLowerCase().includes(q) &&
-        !item.uniqueId.toLowerCase().includes(q) &&
-        !item.introducedBy.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
+  const handleRetry = () => {
+    const hasFilters =
+      applied.search ||
+      applied.memberType !== 'All Types' ||
+      applied.status !== 'All Status';
+    if (hasFilters) {
+      fetchMembers();
+    }
+  };
 
   const renderMemberItem = ({ item, index }) => (
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
         <Text style={styles.srNo}>{index + 1}</Text>
-        <Text style={styles.uniqueIdText}>ID: {item.uniqueId}</Text>
+        <Text style={styles.uniqueIdText}>ID: {item.memberId}</Text>
         <Badge text={item.status} />
       </View>
 
@@ -261,23 +244,13 @@ const MembershipScreen = ({ navigation }) => {
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Membership Date</Text>
-          <Text style={styles.valText}>{item.membershipDate}</Text>
+          <Text style={styles.valText}>
+            {item.membershipDate && item.membershipDate !== '-'
+              ? new Date(item.membershipDate).toLocaleDateString('en-IN')
+              : '-'}
+          </Text>
         </View>
       </View>
-
-      {/* <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() => {}}
-      >
-        <Icon
-          name="eye-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>View Details / Action</Text>
-      </TouchableOpacity> */}
     </View>
   );
 
@@ -293,8 +266,8 @@ const MembershipScreen = ({ navigation }) => {
         <View style={styles.body}>
           <Body>
             <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
+              data={members}
+              keyExtractor={item => item._id}
               renderItem={renderMemberItem}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
@@ -307,7 +280,7 @@ const MembershipScreen = ({ navigation }) => {
                     style={styles.statsScroll}
                     contentContainerStyle={styles.statsContent}
                   >
-                    {STATS_CARDS.map((stat, idx) => (
+                    {statsCards.map((stat, idx) => (
                       <View key={idx} style={styles.statCard}>
                         <Text style={styles.statCardTitle}>{stat.title}</Text>
                         <View style={styles.statRowMain}>
@@ -332,10 +305,7 @@ const MembershipScreen = ({ navigation }) => {
                       <SearchField
                         placeholder="Search member name, ID..."
                         value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
+                        onChangeText={handleSearchChange}
                       />
                     </View>
 
@@ -356,17 +326,43 @@ const MembershipScreen = ({ navigation }) => {
                 </View>
               }
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon
-                    name="account-search-outline"
-                    size={40}
-                    color="#9CA3AF"
-                  />
-                  <Text style={styles.emptyTitle}>No members found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
+                loading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator
+                      size="large"
+                      color={colors.primary}
+                      style={styles.loadingSpinner}
+                    />
+                    <Text style={styles.emptyTitle}>Loading members...</Text>
+                  </View>
+                ) : error ? (
+                  <View style={styles.emptyContainer}>
+                    <Icon
+                      name="alert-circle-outline"
+                      size={40}
+                      color="#ef4444"
+                    />
+                    <Text style={styles.emptyTitle}>{error}</Text>
+                    <TouchableOpacity
+                      style={styles.retryButton}
+                      onPress={handleRetry}
+                    >
+                      <Text style={styles.retryButtonText}>Retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Icon
+                      name="account-search-outline"
+                      size={40}
+                      color="#9CA3AF"
+                    />
+                    <Text style={styles.emptyTitle}>No members found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try adjusting your search or filters.
+                    </Text>
+                  </View>
+                )
               }
             />
 
@@ -633,6 +629,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 40,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingSpinner: {
+    marginBottom: 16,
+  },
   emptyTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
@@ -645,6 +649,18 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.bold,
+    color: colors.white,
   },
 
   // Filter Modal Styles

@@ -759,6 +759,89 @@ export const fetchPaymentsList = async (filters = {}) => {
 };
 
 // ============================================================
+// MEMBER COLLECTION REPORTS API
+// ============================================================
+export const fetchMemberCollectionReports = async (filters = {}) => {
+  try {
+    console.log('📊 Fetching member collection reports...');
+
+    const queryParams = {
+      page: filters.page || 1,
+      limit: filters.limit || 10,
+      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      search: filters.search || '',
+    };
+
+    // Add date filters if provided
+    if (filters.fromDate) {
+      queryParams.fromDate = filters.fromDate;
+    }
+    if (filters.toDate) {
+      queryParams.toDate = filters.toDate;
+    }
+    if (filters.status && filters.status !== 'All Status') {
+      queryParams.status = filters.status;
+    }
+
+    // Remove empty params
+    Object.keys(queryParams).forEach(
+      key => !queryParams[key] && delete queryParams[key]
+    );
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    const response = await api.get(`member-collection-reports?${queryString}`);
+
+    const reports = response?.data?.data?.reports || [];
+    const totalReports = response?.data?.data?.totalReports || 0;
+    const totalPages = response?.data?.data?.totalPages || 1;
+    const currentPage = response?.data?.data?.currentPage || 1;
+
+    console.log('✅ Collection reports fetched successfully');
+    return {
+      success: true,
+      reports,
+      totalReports,
+      totalPages,
+      currentPage,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching collection reports:', error);
+    return {
+      success: false,
+      message: error.message || 'Error fetching collection reports',
+      reports: [],
+      totalReports: 0,
+      totalPages: 0,
+      currentPage: 1,
+    };
+  }
+};
+
+export const createMemberCollectionReport = async (reportData) => {
+  try {
+    console.log('📝 Creating member collection report...');
+
+    const response = await api.post('member-collection-reports', reportData);
+
+    const report = response?.data?.data || {};
+
+    console.log('✅ Collection report created successfully');
+    return {
+      success: true,
+      report,
+      message: 'Report created successfully',
+    };
+  } catch (error) {
+    console.error('❌ Error creating collection report:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Error creating report',
+      report: null,
+    };
+  }
+};
+
+// ============================================================
 // HELPER: Format collectors for display (name + type)
 // ============================================================
 export const formatCollectorsForDisplay = (collectors) => {

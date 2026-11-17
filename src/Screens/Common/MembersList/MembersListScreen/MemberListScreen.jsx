@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -24,11 +24,10 @@ import {
   GreenButton,
   GrayButton,
   Badge,
-  toDateObj,
-  startOfDay,
   shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { fetchMembersList } from '../../../../api/member';
 
 const MEMBER_TYPES = [
   'All Types',
@@ -39,179 +38,29 @@ const MEMBER_TYPES = [
   'Mohsine Member',
 ];
 
-const MEMBER_STATUSES = ['All Status', 'Active', 'Suspended', 'Expired'];
-const CITIZENSHIP_LIST = ['All', 'Indian', 'Other'];
+const MEMBER_STATUSES = [
+  'All Status',
+  'Active',
+  'TimeBar',
+  'Suspended',
+  'Expired',
+];
+const CITIZENSHIP_LIST = ['All', 'Indian', 'Foreign'];
 const PAYMENT_MODES = ['All Modes', 'Bank Transfer', 'UPI', 'Cash'];
 
-const DEFAULT_FROM = new Date(2024, 0, 1);
-const DEFAULT_TO = new Date(2026, 11, 31);
-
-const MEMBERSHIP_LIST_DATA = [
-  {
-    id: '1',
-    wmrn: '-',
-    memberId: '827',
-    uniqueId: 'OR2630',
-    fullName: 'Nawab Syed Mohd Sadiq Safvi',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Shamsabad, Farrukhabad',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    wmrn: '-',
-    memberId: '695',
-    uniqueId: 'OR8042',
-    fullName: 'Syed Raza Husain Zaidi',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Meer Gharana Dariba Jaunpur',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    wmrn: '-',
-    memberId: '686',
-    uniqueId: 'OR1713',
-    fullName: 'Late Syed Zawwar Ali',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Kallan Ki Lath, Aminabad, Lucknow',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    wmrn: '202608148497',
-    memberId: '641',
-    uniqueId: 'OR2890',
-    fullName: 'Syed Haider Naqvi',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: '-',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '5',
-    wmrn: '-',
-    memberId: '293',
-    uniqueId: 'OR3655',
-    fullName: 'Late Haji Syedul Abidin',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Shah Ganj, Agra',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '6',
-    wmrn: '-',
-    memberId: '179',
-    uniqueId: 'OR2866',
-    fullName: 'Late Maulana Syed Ibney Hasan',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Katra Abu Turab Khan, Lucknow',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '7',
-    wmrn: '-',
-    memberId: '5',
-    uniqueId: 'OR1874',
-    fullName: 'Late Wakaf Ghulam Husain',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Kairana, Muzaffar Nagar',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '8',
-    wmrn: '-',
-    memberId: '533',
-    uniqueId: 'OR5985',
-    fullName: 'Late Abid Raza',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Takiya Peer Jaleel Gola Ganj, Lucknow',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '9',
-    wmrn: '-',
-    memberId: '637',
-    uniqueId: 'OR6473',
-    fullName: 'Late Syed Akbar Husain Rizvi',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Collection Ameen, Sitapur',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-  {
-    id: '10',
-    wmrn: '-',
-    memberId: '971',
-    uniqueId: 'OR7653',
-    fullName: 'Late Syed Mohd Shabbir Rizvi',
-    memberType: 'Ordinary Member',
-    membershipDate: '-',
-    renewDate: '-',
-    mobile: '-',
-    email: '-',
-    address: 'Moh Qaziyra, Sitapur',
-    postalCode: '-',
-    introducedBy: '-',
-    status: 'Active',
-  },
-];
+const DEFAULT_FROM = new Date(new Date().getFullYear(), 0, 1);
+const DEFAULT_TO = new Date();
 
 const MembershipListScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [membersData, setMembersData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+
+  // Debounce timer
+  const searchTimerRef = React.useRef(null);
 
   // Applied Filters
   const [applied, setApplied] = useState({
@@ -225,6 +74,7 @@ const MembershipListScreen = ({ navigation }) => {
   });
 
   // Draft Filters in Modal
+  const [draftSearch, setDraftSearch] = useState('');
   const [draftType, setDraftType] = useState('All Types');
   const [draftStatus, setDraftStatus] = useState('All Status');
   const [draftCitizenship, setDraftCitizenship] = useState('All');
@@ -232,7 +82,74 @@ const MembershipListScreen = ({ navigation }) => {
   const [draftFrom, setDraftFrom] = useState(DEFAULT_FROM);
   const [draftTo, setDraftTo] = useState(DEFAULT_TO);
 
+  useEffect(() => {
+    loadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadMembers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetchMembersList({
+        page,
+        limit: 50,
+        isPagination: true,
+        search: applied.search,
+        memberType: applied.memberType,
+        status: applied.status,
+        citizenship: applied.citizenship,
+      });
+
+      if (response.success) {
+        setMembersData(response.members);
+      } else {
+        setError(response.message || 'Failed to load members');
+        setMembersData([]);
+      }
+    } catch (err) {
+      console.error('❌ Error loading members:', err);
+      setError('Failed to load members');
+      setMembersData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load members when applied filters change
+  useEffect(() => {
+    if (
+      applied.search ||
+      applied.memberType !== 'All Types' ||
+      applied.status !== 'All Status'
+    ) {
+      loadMembers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied, page]);
+
+  // Debounced search
+  const handleSearch = text => {
+    setSearch(text);
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    if (text.length > 0) {
+      searchTimerRef.current = setTimeout(() => {
+        setApplied(prev => ({ ...prev, search: text }));
+        setPage(1);
+      }, 500);
+    } else {
+      setApplied(prev => ({ ...prev, search: '' }));
+      setPage(1);
+    }
+  };
+
   const openFilter = () => {
+    setDraftSearch(applied.search);
     setDraftType(applied.memberType);
     setDraftStatus(applied.status);
     setDraftCitizenship(applied.citizenship);
@@ -245,6 +162,7 @@ const MembershipListScreen = ({ navigation }) => {
   const applyFilter = () => {
     setApplied(prev => ({
       ...prev,
+      search: draftSearch,
       memberType: draftType,
       status: draftStatus,
       citizenship: draftCitizenship,
@@ -253,9 +171,11 @@ const MembershipListScreen = ({ navigation }) => {
       to: draftTo,
     }));
     setFilterOpen(false);
+    setPage(1);
   };
 
   const handleReset = () => {
+    setDraftSearch('');
     setDraftType('All Types');
     setDraftStatus('All Status');
     setDraftCitizenship('All');
@@ -272,46 +192,14 @@ const MembershipListScreen = ({ navigation }) => {
       from: DEFAULT_FROM,
       to: DEFAULT_TO,
     });
+    setMembersData([]);
+    setPage(1);
   };
 
   const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return MEMBERSHIP_LIST_DATA.filter(item => {
-      if (
-        applied.memberType !== 'All Types' &&
-        item.memberType !== applied.memberType
-      )
-        return false;
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
-
-      if (
-        q &&
-        !item.fullName.toLowerCase().includes(q) &&
-        !item.uniqueId.toLowerCase().includes(q) &&
-        !item.memberId.toLowerCase().includes(q) &&
-        !item.address.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
-
-  const handleGenerateAccount = item => {
-    Alert.alert(
-      'Generate Account',
-      `Generate account number for ${item.fullName} (${item.uniqueId})?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Generate',
-          onPress: () =>
-            Alert.alert('Success', 'Account number generated successfully!'),
-        },
-      ],
-    );
-  };
+    // Filtering done backend via API
+    return membersData;
+  }, [membersData]);
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
@@ -339,11 +227,11 @@ const MembershipListScreen = ({ navigation }) => {
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>WMRN</Text>
-          <Text style={styles.valText}>{item.wmrn}</Text>
+          <Text style={styles.valText}>{item.acountNo}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Mobile No.</Text>
-          <Text style={styles.valText}>{item.mobile}</Text>
+          <Text style={styles.valText}>{item.mobileNumber}</Text>
         </View>
       </View>
 
@@ -382,71 +270,78 @@ const MembershipListScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  <Text style={styles.screenDesc}>
-                    Manage membership list applications
-                  </Text>
+            {loading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : error ? (
+              <View style={styles.centerContainer}>
+                <Icon name="alert-circle-outline" size={40} color="#DC2626" />
+                <Text style={styles.errorText}>{error}</Text>
+                <GreenButton
+                  title="Retry"
+                  onPress={loadMembers}
+                  style={styles.retryBtn}
+                />
+              </View>
+            ) : (
+              <FlatList
+                data={filteredData}
+                keyExtractor={(item, idx) => item._id || idx.toString()}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                ListHeaderComponent={
+                  <View>
+                    <Text style={styles.screenDesc}>
+                      Manage membership list applications
+                    </Text>
 
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search member, ID, address..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
+                    {/* Search Field & Filter Icon Row */}
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search member, ID, address..."
+                          value={search}
+                          onChangeText={handleSearch}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                      </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
-                      <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
-                      />
-                    </TouchableOpacity>
                   </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon
-                    name="account-search-outline"
-                    size={40}
-                    color="#9CA3AF"
-                  />
-                  <Text style={styles.emptyTitle}>No members found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Icon
+                      name="account-search-outline"
+                      size={40}
+                      color="#9CA3AF"
+                    />
+                    <Text style={styles.emptyTitle}>No members found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try adjusting your search or filters.
+                    </Text>
+                  </View>
+                }
+              />
+            )}
 
             {/* Bottom Button Bar with Two Buttons */}
             <View style={styles.bottomBar}>
               <GreenButton
                 title="Generate A/C"
-                icon="account-cog-outline"
-                onPress={() =>
-                  Alert.alert(
-                    'Success',
-                    'Account numbers generated successfully!',
-                  )
-                }
+                onPress={() => {}}
                 style={styles.genButtonBar}
               />
             </View>
@@ -475,6 +370,14 @@ const MembershipListScreen = ({ navigation }) => {
                   <Icon name="close" size={22} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
+
+              <Label text="Search" />
+              <SearchField
+                placeholder="Search member..."
+                value={draftSearch}
+                onChangeText={setDraftSearch}
+                style={styles.modalGap}
+              />
 
               <Label text="Member Type" />
               <Dropdown
@@ -512,7 +415,11 @@ const MembershipListScreen = ({ navigation }) => {
               </View>
 
               <View
-                style={[shared.row, styles.modalDateRow, { marginTop: 12 }]}
+                style={[
+                  shared.row,
+                  styles.modalDateRow,
+                  styles.modalDateRowTop,
+                ]}
               >
                 <View style={shared.colL}>
                   <Label text="From Date" />
@@ -566,6 +473,22 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: 'hidden',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+    color: '#DC2626',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: 16,
   },
 
   screenDesc: {
@@ -741,6 +664,9 @@ const styles = StyleSheet.create({
   },
   modalDateRow: {
     marginBottom: 0,
+  },
+  modalDateRowTop: {
+    marginTop: 12,
   },
   actionRow: {
     flexDirection: 'row',

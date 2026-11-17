@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -67,7 +67,7 @@ const CollectionReportScreen = ({ navigation }) => {
   // Load collectors and initial data
   useEffect(() => {
     loadCollectors();
-    loadReportData();
+    // Initial load with no filters
   }, []);
 
   // Reload report data when filters change
@@ -76,6 +76,7 @@ const CollectionReportScreen = ({ navigation }) => {
     setReportData(null);
     setHasMore(true);
     loadReportData(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applied]);
 
   const loadCollectors = async () => {
@@ -573,13 +574,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.white,
-  },
-
-  loadingText: {
-    marginTop: 12,
-    fontSize: FontSize.md,
-    fontFamily: FontFamily.medium,
-    color: colors.textSecondary,
   },
 
   loadingText: {

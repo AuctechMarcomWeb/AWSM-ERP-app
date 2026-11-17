@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 
 import {
   View,
@@ -100,6 +100,7 @@ const LetterRecordScreen = ({ navigation }) => {
   // Fetch communications on mount and when tab/filter changes
   useEffect(() => {
     fetchLetters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, applied]);
 
   const fetchLetters = async () => {

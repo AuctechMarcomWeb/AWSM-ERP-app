@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 
 import {
   View,
@@ -52,13 +52,13 @@ const MessagingScreen = ({ navigation }) => {
     fetchMessages(1);
   }, [tab]);
 
-  const fetchMessages = async (pageNum) => {
+  const fetchMessages = async pageNum => {
     if (pageNum === 1) {
       setLoading(true);
     } else {
       setLoadingMore(true);
     }
-    
+
     try {
       const tabConfig = TABS.find(t => t.key === tab);
       const messageType = tabConfig?.type; // null for 'All', 'received' for 'Inbound', 'sent' for 'Outbound'
@@ -71,7 +71,7 @@ const MessagingScreen = ({ navigation }) => {
         } else {
           setMessages(prev => [...prev, ...response.messages]);
         }
-        
+
         // Check if there are more items
         setHasMore(response.messages.length >= pageSize);
         setPage(pageNum);
@@ -112,17 +112,16 @@ const MessagingScreen = ({ navigation }) => {
   const data = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return messages
-      .filter(m => {
-        if (
-          q &&
-          !m.title.toLowerCase().includes(q) &&
-          !m.preview.toLowerCase().includes(q)
-        ) {
-          return false;
-        }
-        return true;
-      });
+    return messages.filter(m => {
+      if (
+        q &&
+        !m.title.toLowerCase().includes(q) &&
+        !m.preview.toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      return true;
+    });
   }, [tab, search, messages]);
 
   const renderItem = ({ item }) => {
@@ -134,7 +133,8 @@ const MessagingScreen = ({ navigation }) => {
         activeOpacity={0.8}
         style={styles.row}
         onPress={() =>
-          navigation && navigation.navigate('MessageDetailsScreen', { message: item })
+          navigation &&
+          navigation.navigate('MessageDetailsScreen', { message: item })
         }
       >
         <View style={styles.avatar}>
@@ -258,13 +258,19 @@ const MessagingScreen = ({ navigation }) => {
                   loadingMore && hasMore ? (
                     <View style={styles.loadMoreContainer}>
                       <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={styles.loadMoreText}>Loading more messages...</Text>
+                      <Text style={styles.loadMoreText}>
+                        Loading more messages...
+                      </Text>
                     </View>
                   ) : null
                 }
                 ListEmptyComponent={
                   <View style={styles.empty}>
-                    <Icon name="message-off-outline" size={46} color="#9CA3AF" />
+                    <Icon
+                      name="message-off-outline"
+                      size={46}
+                      color="#9CA3AF"
+                    />
                     <Text style={styles.emptyText}>No messages found</Text>
                   </View>
                 }

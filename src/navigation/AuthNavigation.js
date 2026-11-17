@@ -43,7 +43,7 @@ import AddIncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fard
 import PostsScreen from '../Screens/Common/PostsScreen/MainScreen/MainScreen';
 import WazifaApplicationsScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationsScreen/WazifaApplicationsScreen';
 import WazifaApplicationSubmittedScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationSubmittedScreen/WazifaApplicationSubmittedScreen';
-import AddWazifaApplicationScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/AddWazifaApplicationScreen/AddWazifaApplicationScreen';
+import AddWazifaApplicationScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/EditWazifaApplicationScreen/EditWazifaApplicationScreen';
 import VerifyWazifaListScreen from '../Screens/Common/Wafizedar/VerifyWazifaListScreen/VerifyWazifaListScreen';
 import RecentTransactionsScreen from '../Screens/Common/Wafizedar/RecentTransactionsScreen/RecentTransactionsScreen';
 import WazifaDueReportScreen from '../Screens/Common/Wafizedar/WazifaDueReportScreen/WazifaDueReportScreen';

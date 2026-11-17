@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -24,12 +25,12 @@ import {
   GrayButton,
   Badge,
   formatRs,
-  toDateObj,
-  startOfDay,
   shared,
   PillTabs,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+
+import { fetchCollectionReportData } from '../../../../api/collection';
 
 // ---------------------------------------------------------------
 // Dummy data & Options
@@ -49,86 +50,13 @@ const MEMBERS_LIST = [
 const DEFAULT_FROM = new Date(2026, 5, 1);
 const DEFAULT_TO = new Date(2026, 10, 30);
 
-const REPORTS = [
-  {
-    id: '1',
-    from: '2026-08-21',
-    to: '2026-08-21',
-    collector: 'ankita',
-    code: '001',
-    city: 'Lko',
-    state: 'Lko',
-    amount: 71,
-    transactions: 1,
-    status: 'Draft',
-  },
-  {
-    id: '2',
-    from: '2026-08-22',
-    to: '2026-08-21',
-    collector: 'Haji Dr S Mohd. Abbas Zaidi',
-    code: '0001',
-    city: 'New Delhi',
-    state: 'New Delhi',
-    amount: 24,
-    transactions: 1,
-    status: 'Draft',
-  },
-  {
-    id: '3',
-    from: '2026-08-21',
-    to: '2026-08-21',
-    collector: 'Mirza Ali Abbas',
-    code: '0003',
-    city: 'Gorakhpur',
-    state: 'U.P',
-    amount: 120,
-    transactions: 1,
-    status: 'Draft',
-  },
-  {
-    id: '4',
-    from: '2026-08-21',
-    to: '2026-08-21',
-    collector: 'Sanaul Hasan Zaidi',
-    code: '0002',
-    city: 'Aligarh',
-    state: 'U.P',
-    amount: 2081,
-    transactions: 2,
-    status: 'Draft',
-  },
-  {
-    id: '5',
-    from: '2026-08-21',
-    to: '2026-08-21',
-    collector: 'Haji Dr S Mohd. Abbas Zaidi',
-    code: '0001',
-    city: 'New Delhi',
-    state: 'New Delhi',
-    amount: 0,
-    transactions: 0,
-    status: 'Draft',
-  },
-  {
-    id: '6',
-    from: '2026-06-01',
-    to: '2026-06-30',
-    collector: 'Rahul Kumar',
-    code: 'MEM001',
-    city: 'Ahmedabad',
-    state: 'Gujarat',
-    amount: 42431,
-    transactions: 5,
-    status: 'Draft',
-  },
-];
-
 // '2026-08-21' -> '21/08/2026'
 const dmy = iso => iso.split('-').reverse().join('/');
 
 const FardeHisaabScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // Applied filters state
   const [applied, setApplied] = useState({
@@ -148,6 +76,48 @@ const FardeHisaabScreen = ({ navigation }) => {
   const [draftTo, setDraftTo] = useState(DEFAULT_TO);
   const [draftStatus, setDraftStatus] = useState('All Status');
   const [draftMember, setDraftMember] = useState('All Members');
+
+  // Load reports from API
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await fetchCollectionReportData({
+        page: 1,
+        limit: 50,
+        fromDate: applied.from.toISOString(),
+        toDate: applied.to.toISOString(),
+        collectedBy: applied.selectedMember !== 'All Members' ? applied.selectedMember : '',
+        search: applied.search,
+      });
+      
+      if (result.success && result.docs) {
+        // Transform docs to match our card display format
+        const transformedReports = result.docs.map((doc, idx) => ({
+          id: doc._id || idx.toString(),
+          from: doc.date || new Date().toISOString().split('T')[0],
+          to: doc.date || new Date().toISOString().split('T')[0],
+          collector: doc.collectedBy || 'Unknown',
+          code: doc.collectedByMemberId || 'N/A',
+          city: doc.collectedByCity || 'N/A',
+          state: doc.collectedByState || 'N/A',
+          amount: doc.amount || 0,
+          transactions: doc.transactions || 1,
+          status: doc.status || 'Draft',
+        }));
+        setReports(transformedReports);
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [applied]);
+
+  useEffect(() => {
+    if (tab === 'Farde Hisaab') {
+      loadReports();
+    }
+  }, [loadReports, tab]);
 
   const openFilter = () => {
     setDraftFrom(applied.from);
@@ -193,23 +163,17 @@ const FardeHisaabScreen = ({ navigation }) => {
 
     // Only filter if on Farde Hisaab tab
     if (tab === 'Farde Hisaab') {
-      return REPORTS.filter(r => {
+      return reports.filter(r => {
         if (applied.status !== 'All Status' && r.status !== applied.status)
           return false;
 
         if (
           applied.selectedMember !== 'All Members' &&
-          !applied.selectedMember
-            .toLowerCase()
-            .includes(r.collector.toLowerCase()) &&
+          !applied.selectedMember.toLowerCase().includes(r.collector.toLowerCase()) &&
           !applied.selectedMember.includes(r.code)
         ) {
           return false;
         }
-
-        if (applied.from && toDateObj(r.from) < startOfDay(applied.from))
-          return false;
-        if (applied.to && toDateObj(r.to) > startOfDay(applied.to)) return false;
 
         if (
           q &&
@@ -226,7 +190,7 @@ const FardeHisaabScreen = ({ navigation }) => {
 
     // For Summary tab, return empty (will show different UI)
     return [];
-  }, [applied, tab]);
+  }, [reports, applied, tab]);
 
   const renderItem = ({ item, index }) => (
     <TouchableOpacity
@@ -331,16 +295,23 @@ const FardeHisaabScreen = ({ navigation }) => {
                 )
               }
               ListEmptyComponent={
-                <View style={shared.empty}>
-                  <Icon
-                    name="file-document-outline"
-                    size={46}
-                    color={colors.placeHolderColor}
-                  />
-                  <Text style={shared.emptyText}>
-                    {tab === 'Farde Hisaab' ? 'No reports found' : 'No summaries found'}
-                  </Text>
-                </View>
+                loading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>Loading reports...</Text>
+                  </View>
+                ) : (
+                  <View style={shared.empty}>
+                    <Icon
+                      name="file-document-outline"
+                      size={46}
+                      color={colors.placeHolderColor}
+                    />
+                    <Text style={shared.emptyText}>
+                      {tab === 'Farde Hisaab' ? 'No reports found' : 'No summaries found'}
+                    </Text>
+                  </View>
+                )
               }
             />
 
@@ -463,6 +434,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp('4%'),
     marginTop: 14,
     marginBottom: 4,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.medium,
+    color: colors.textSecondary,
   },
 
   // Search & Filter Row

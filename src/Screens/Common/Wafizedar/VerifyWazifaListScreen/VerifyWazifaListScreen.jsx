@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -23,93 +26,116 @@ import {
   GreenButton,
   GrayButton,
   Badge,
-  toDateObj,
-  startOfDay,
   shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
-const DISBURSEMENT_STATUSES = ['All', 'Disbursed', 'Pending'];
-const FORM_TYPES = ['All', 'New', 'Renewal'];
+import { fetchVerifiedWazifaApplications } from '../../../../api/wazifa';
 
-const DEFAULT_FROM = new Date(2025, 0, 1);
-const DEFAULT_TO = new Date(2026, 11, 31);
-
-const VERIFY_LIST = [
-  {
-    id: '1',
-    portalId: '202610174685',
-    wazifaNo: '001527',
-    name: 'Ali Raza',
-    formType: 'New',
-    course: 'BA/BCOM',
-    institution: 'Shia PG College',
-    annualFees: 'Rs 6,874',
-    appliedOn: '2026-10-17',
-    status: 'Verified',
-    disbursedStatus: 'Pending',
-  },
-  {
-    id: '2',
-    portalId: '202610132596',
-    wazifaNo: '001526',
-    name: 'Adeeba Mansoor',
-    formType: 'New',
-    course: 'MCA/MBA/MFA/MSW',
-    institution: 'AMU',
-    annualFees: 'Rs 25,000',
-    appliedOn: '2026-10-13',
-    status: 'Verified',
-    disbursedStatus: 'Disbursed',
-  },
-  {
-    id: '3',
-    portalId: '202610136018',
-    wazifaNo: '001525',
-    name: 'Areeba Fatima',
-    formType: 'New',
-    course: 'ITI / Para Medical',
-    institution: 'Era University, Lucknow',
-    annualFees: 'Rs 77,500',
-    appliedOn: '2026-10-13',
-    status: 'Verified',
-    disbursedStatus: 'Pending',
-  },
-  {
-    id: '4',
-    portalId: '202610131619',
-    wazifaNo: '001524',
-    name: 'Syed Kazim Abbas',
-    formType: 'New',
-    course: 'BSC (Biotechnology)',
-    institution: 'Era University, Lucknow',
-    annualFees: 'Rs 1,00,000',
-    appliedOn: '2026-10-13',
-    status: 'Verified',
-    disbursedStatus: 'Disbursed',
-  },
+const DISBURSEMENT_STATUSES = [
+  'All',
+  'Pending',
+  'Disbursed',
+  'Returned',
+  'Resend',
 ];
-
-const dmy = iso => (iso ? iso.split('-').reverse().join('/') : '');
+const FORM_TYPES = ['All', 'New', 'Renewal'];
 
 const VerifyWazifaListScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10;
 
   // Applied Filters
   const [applied, setApplied] = useState({
     search: '',
     disbursementStatus: 'All',
     formType: 'All',
-    from: DEFAULT_FROM,
-    to: DEFAULT_TO,
+    from: null,
+    to: null,
   });
 
   // Draft Filters inside Modal
   const [draftDisbursement, setDraftDisbursement] = useState('All');
   const [draftFormType, setDraftFormType] = useState('All');
-  const [draftFrom, setDraftFrom] = useState(DEFAULT_FROM);
-  const [draftTo, setDraftTo] = useState(DEFAULT_TO);
+  const [draftFrom, setDraftFrom] = useState(null);
+  const [draftTo, setDraftTo] = useState(null);
+
+  // Load verified applications
+  const loadApplications = useCallback(
+    async (pageNum = 1, isRefresh = false) => {
+      if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      try {
+        const result = await fetchVerifiedWazifaApplications({
+          page: pageNum,
+          limit: pageSize,
+          search: applied.search,
+          disbursedStatus:
+            applied.disbursementStatus !== 'All'
+              ? applied.disbursementStatus
+              : '',
+          formType: applied.formType !== 'All' ? applied.formType : '',
+          ...(applied.from && {
+            fromDate: applied.from.toISOString(),
+          }),
+          ...(applied.to && {
+            toDate: applied.to.toISOString(),
+          }),
+        });
+
+        if (result.success) {
+          const newData = result.applications || [];
+
+          if (pageNum === 1) {
+            setApplications(newData);
+          } else {
+            setApplications(prev => [...prev, ...newData]);
+          }
+
+          setPage(pageNum);
+          setHasMore(newData.length === pageSize);
+        }
+      } catch (error) {
+        console.error('Error loading applications:', error);
+        Alert.alert('Error', 'Failed to load verified applications');
+      } finally {
+        if (pageNum === 1) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
+      }
+    },
+    [applied, pageSize],
+  );
+
+  // Load applications on mount and whenever filters change
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    loadApplications(1);
+  }, [applied, loadApplications]);
+  const handleLoadMore = () => {
+    if (hasMore && !loading && !loadingMore) {
+      loadApplications(page + 1);
+    }
+  };
+
+  const handleRefresh = () => {
+    setPage(1);
+    setHasMore(true);
+    loadApplications(1, true);
+  };
 
   const openFilter = () => {
     setDraftDisbursement(applied.disbursementStatus);
@@ -127,66 +153,41 @@ const VerifyWazifaListScreen = ({ navigation }) => {
       from: draftFrom,
       to: draftTo,
     }));
+    setHasMore(true);
     setFilterOpen(false);
   };
 
   const handleReset = () => {
     setDraftDisbursement('All');
     setDraftFormType('All');
-    setDraftFrom(DEFAULT_FROM);
-    setDraftTo(DEFAULT_TO);
+    setDraftFrom(null);
+    setDraftTo(null);
     setSearch('');
+
     setApplied({
       search: '',
       disbursementStatus: 'All',
       formType: 'All',
-      from: DEFAULT_FROM,
-      to: DEFAULT_TO,
+      from: null,
+      to: null,
     });
+
+    setPage(1);
+    setHasMore(true);
   };
 
+  const hasActiveFilters =
+    applied.disbursementStatus !== 'All' || applied.formType !== 'All';
+
   const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-
-    return VERIFY_LIST.filter(item => {
-      if (
-        applied.disbursementStatus !== 'All' &&
-        item.disbursedStatus !== applied.disbursementStatus
-      ) {
-        return false;
-      }
-      if (applied.formType !== 'All' && item.formType !== applied.formType) {
-        return false;
-      }
-      if (
-        applied.from &&
-        toDateObj(item.appliedOn) < startOfDay(applied.from)
-      ) {
-        return false;
-      }
-      if (applied.to && toDateObj(item.appliedOn) > startOfDay(applied.to)) {
-        return false;
-      }
-
-      if (
-        q &&
-        !item.name.toLowerCase().includes(q) &&
-        !item.wazifaNo.toLowerCase().includes(q) &&
-        !item.portalId.toLowerCase().includes(q) &&
-        !item.institution.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [applied]);
+    return applications;
+  }, [applications]);
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>{index + 1}</Text>
-        <Text style={styles.portalIdText}>Portal ID: {item.portalId}</Text>
+        <Text style={styles.srNo}>{(page - 1) * pageSize + index + 1}</Text>
+        <Text style={styles.portalIdText}>Portal ID: {item.acountNo}</Text>
         <Badge text={item.status} />
       </View>
 
@@ -195,18 +196,18 @@ const VerifyWazifaListScreen = ({ navigation }) => {
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Student Name</Text>
-          <Text style={styles.valTextBold}>{item.name}</Text>
+          <Text style={styles.valTextBold}>{item.studentName}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Wazifa No.</Text>
-          <Text style={styles.valTextPrimary}>{item.wazifaNo}</Text>
+          <Text style={styles.valTextPrimary}>{item.applicationNo}</Text>
         </View>
       </View>
 
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Course</Text>
-          <Text style={styles.valText}>{item.course}</Text>
+          <Text style={styles.valText}>{item.courseOfStudy}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Form Type</Text>
@@ -217,18 +218,24 @@ const VerifyWazifaListScreen = ({ navigation }) => {
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Institution</Text>
-          <Text style={styles.valText}>{item.institution}</Text>
+          <Text style={styles.valText}>{item.institutionName}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Annual Fees</Text>
-          <Text style={styles.valFees}>{item.annualFees}</Text>
+          <Text style={styles.valFees}>
+            Rs {Number(item.totalAnnualFees).toLocaleString('en-IN')}
+          </Text>
         </View>
       </View>
 
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Applied On</Text>
-          <Text style={styles.valText}>{dmy(item.appliedOn)}</Text>
+          <Text style={styles.valText}>
+            {item.createdAt
+              ? new Date(item.createdAt).toLocaleDateString()
+              : 'N/A'}
+          </Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Disbursed Status</Text>
@@ -241,7 +248,7 @@ const VerifyWazifaListScreen = ({ navigation }) => {
               },
             ]}
           >
-            {item.disbursedStatus}
+            {item.disbursedStatus || 'Pending'}
           </Text>
         </View>
       </View>
@@ -261,14 +268,29 @@ const VerifyWazifaListScreen = ({ navigation }) => {
           <Body>
             <FlatList
               data={filteredData}
-              keyExtractor={item => item.id}
+              keyExtractor={item => item._id}
               renderItem={renderItem}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={loading}
+                  onRefresh={handleRefresh}
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
+                />
+              }
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.2}
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : null
+              }
               ListHeaderComponent={
                 <View>
-                  {/* Subtitle description */}
-
                   {/* Search Bar & Filter Icon */}
                   <View style={styles.searchFilterContainer}>
                     <View style={styles.searchFlex}>
@@ -278,6 +300,7 @@ const VerifyWazifaListScreen = ({ navigation }) => {
                         onChangeText={text => {
                           setSearch(text);
                           setApplied(prev => ({ ...prev, search: text }));
+                          setPage(1);
                         }}
                       />
                     </View>
@@ -292,18 +315,34 @@ const VerifyWazifaListScreen = ({ navigation }) => {
                         size={22}
                         color={colors.white}
                       />
+                      {hasActiveFilters && (
+                        <View style={styles.filterBadgeDot} />
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
               }
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name="file-search-outline" size={40} color="#9CA3AF" />
-                  <Text style={styles.emptyTitle}>No records found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
+                loading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>
+                      Loading verified applications...
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Icon
+                      name="file-search-outline"
+                      size={40}
+                      color="#9CA3AF"
+                    />
+                    <Text style={styles.emptyTitle}>No records found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try adjusting your search or filters.
+                    </Text>
+                  </View>
+                )
               }
             />
           </Body>
@@ -416,7 +455,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
-      marginTop: 25,
+    marginTop: 25,
   },
   searchFlex: {
     flex: 1,
@@ -430,6 +469,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.medium,
+    color: colors.textSecondary,
   },
 
   listContent: {

@@ -8,11 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import colors from '../../../../themes/colors';
-import { FontFamily, FontSize } from '../../../../themes/typography';
+import { FontFamily } from '../../../../themes/typography';
 
 import AppLayout from '../../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../../components/BackHeader/BackHeader';
@@ -26,6 +26,7 @@ import {
   shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { createMember } from '../../../../api/member';
 
 const MEMBER_TYPES = [
   'Ordinary Member',
@@ -38,6 +39,7 @@ const MEMBER_TYPES = [
 const STATUS_OPTIONS = ['Active', 'Suspended', 'Expired'];
 
 const AddMembershipApplicationScreen = ({ navigation }) => {
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     wmrn: 'AUTO-GEN-2026-001',
     accountNo: '',
@@ -64,7 +66,7 @@ const AddMembershipApplicationScreen = ({ navigation }) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.fullName.trim()) {
       Alert.alert('Validation Error', 'Please enter Full Name.');
       return;
@@ -77,9 +79,44 @@ const AddMembershipApplicationScreen = ({ navigation }) => {
       return;
     }
 
-    Alert.alert('Success', 'Membership application added successfully!', [
-      { text: 'OK', onPress: () => navigation && navigation.goBack() },
-    ]);
+    try {
+      setLoading(true);
+
+      const memberData = {
+        acountNo: form.accountNo || '',
+        membershipDate: form.membershipDate,
+        renewDate: form.renewDate,
+        fullName: form.fullName,
+        fatherName: form.fatherName || '',
+        memberType: form.memberType,
+        mobileNumber: form.mobile,
+        whatsappNumber: form.whatsapp,
+        email: form.email || '',
+        citizenship: form.citizenship || 'Indian',
+        state: form.state || '',
+        city: form.city || '',
+        postOffice: form.postOffice || '',
+        postalCode: form.postalCode || '',
+        residentialAddress: form.address || '',
+        status: form.status,
+        introducedBy: form.introducedBy || '',
+      };
+
+      const result = await createMember(memberData);
+
+      if (result.success) {
+        Alert.alert('Success', 'Membership application added successfully!', [
+          { text: 'OK', onPress: () => navigation && navigation.goBack() },
+        ]);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to create membership');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred while saving membership');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -93,7 +130,7 @@ const AddMembershipApplicationScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <KeyboardAvoidingView
-            style={{ flex: 1 }}
+            style={styles.keyboardAvoidingView}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <ScrollView
@@ -288,7 +325,7 @@ const AddMembershipApplicationScreen = ({ navigation }) => {
                   numberOfLines={3}
                   value={form.address}
                   onChangeText={t => updateField('address', t)}
-                  style={[styles.mb, { height: 75, textAlignVertical: 'top' }]}
+                  style={[styles.mb, styles.addressInput]}
                 />
 
                 {/* Status & Introduced By */}
@@ -314,11 +351,19 @@ const AddMembershipApplicationScreen = ({ navigation }) => {
                 {/* Submit Button */}
                 <View style={styles.btnContainer}>
                   <GreenButton
-                    title="Save Membership Application"
-                    icon="check"
+                    title={loading ? 'Saving...' : 'Save Membership Application'}
+                    icon={loading ? undefined : 'check'}
                     onPress={handleSave}
+                    disabled={loading}
                     style={styles.submitBtn}
                   />
+                  {loading && (
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.primary}
+                      style={styles.loadingSpinner}
+                    />
+                  )}
                 </View>
               </Body>
             </ScrollView>
@@ -341,6 +386,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: 'hidden',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   scrollContent: {
     marginTop: 20,
@@ -371,11 +419,18 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
+  addressInput: {
+    height: 75,
+    textAlignVertical: 'top',
+  },
   btnContainer: {
     marginTop: 20,
   },
   submitBtn: {
     height: 50,
+  },
+  loadingSpinner: {
+    marginTop: 12,
   },
 });
 

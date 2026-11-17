@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -82,6 +82,7 @@ const LedgerScreen = ({ navigation }) => {
   useEffect(() => {
     loadWazifaList();
     loadPaymentModes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load ledger when wazifa is selected or filters change
@@ -91,6 +92,7 @@ const LedgerScreen = ({ navigation }) => {
       setHasMore(true);
       loadLedgerData(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applied]);
 
   // Load wazifa list - with debounce on search
@@ -102,7 +104,7 @@ const LedgerScreen = ({ navigation }) => {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [wazifaSearch]);
+  }, [wazifaSearch, wazifaList.length]);
 
   const loadWazifaList = async () => {
     try {

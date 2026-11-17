@@ -185,6 +185,7 @@ const TransactionsScreen = ({ navigation }) => {
     setTransactions([]);
     setHasMore(true);
     loadTransactions(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applied]);
 
   const handleLoadMore = useCallback(() => {
@@ -192,6 +193,7 @@ const TransactionsScreen = ({ navigation }) => {
       const nextPage = Math.floor(transactions.length / pageSize) + 1;
       loadTransactions(nextPage, false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions.length, loadingMore, loading, hasMore, pageSize, applied]);
 
   const openFilter = () => {
@@ -610,13 +612,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E9EEEB',
-  },
-
-  expandedLabel: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.semiBold,
-    color: '#4B5563',
-    flex: 1,
   },
 
   expandedValue: {

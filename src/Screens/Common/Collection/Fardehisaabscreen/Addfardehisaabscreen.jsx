@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  Image,
   TextInput,
   TouchableOpacity,
   ScrollView,
@@ -27,10 +26,11 @@ import {
   DateField,
   GreenButton,
   GrayButton,
-  formatDate,
   shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+
+import { createPaymentEntry, searchMembers } from '../../../../api/collection';
 
 // ---------------------------------------------------------------
 // Config
@@ -95,6 +95,37 @@ const AddFardeHisaabScreen = ({ navigation }) => {
   const [entries, setEntries] = useState([newEntry()]);
   const [amounts, setAmounts] = useState(emptyAmounts());
   const [saving, setSaving] = useState(false);
+  const [members, setMembers] = useState([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [showMembers, setShowMembers] = useState(false);
+
+  // Search members when user types
+  const handleMemberSearch = async (text) => {
+    setMemberSearch(text);
+    if (text.trim().length > 0) {
+      try {
+        const result = await searchMembers(text);
+        if (result.success && result.members) {
+          setMembers(result.members);
+          setShowMembers(true);
+        }
+      } catch (error) {
+        console.error('Error searching members:', error);
+      }
+    } else {
+      setShowMembers(false);
+    }
+  };
+
+  // Select member from search results
+  const selectMember = (member) => {
+    setCollectedBy(`${member.name} (${member.memberCode || member.mobileNumber})`);
+    setMemberId(member._id || member.id);
+    setCity(member.city || '');
+    setShowMembers(false);
+    setMemberSearch('');
+    setMembers([]);
+  };
 
   const updateEntry = (id, patch) =>
     setEntries(prev => prev.map(e => (e.id === id ? { ...e, ...patch } : e)));
@@ -139,23 +170,45 @@ const AddFardeHisaabScreen = ({ navigation }) => {
     setSaving(true);
 
     try {
-      console.log('Save farde hisaab:', {
-        collectedBy,
-        memberId,
+      // Build payload for API
+      const payload = {
+        collectedBy: collectedBy.trim(),
+        collectedByCity: city.trim(),
+        collectedByState: state.trim(),
+        collectedByMemberId: memberId.trim(),
         fromDate: fromDate.toISOString(),
         toDate: toDate.toISOString(),
-        city,
-        state,
-        status,
-        remarks,
-        entries: filled,
-        amounts,
-        total,
-      });
+        remarks: remarks.trim(),
+        status: status,
+        entries: filled.map((e, idx) => ({
+          sr: idx + 1,
+          date: e.date ? e.date.toISOString() : null,
+          receiptNo: e.receiptNo.trim(),
+          regNo: e.regNo.trim(),
+          tallyNo: e.tallyNo.trim(),
+          memberCode: e.memberCode.trim(),
+          name: e.name.trim(),
+          city: e.city.trim(),
+        })),
+        fundTypeAmounts: amounts,
+        total: total,
+      };
 
-      navigation && navigation.goBack();
+      const result = await createPaymentEntry(payload);
+
+      if (result.success) {
+        Alert.alert('Success', 'Farde Hisaab saved successfully', [
+          {
+            text: 'OK',
+            onPress: () => navigation && navigation.goBack(),
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to save report');
+      }
     } catch (err) {
       Alert.alert('Error', err.message || 'Failed to save report');
+      console.error('Save error:', err);
     } finally {
       setSaving(false);
     }
@@ -209,12 +262,44 @@ const AddFardeHisaabScreen = ({ navigation }) => {
                 <View style={shared.row}>
                   <View style={shared.colL}>
                     <Label text="Collected By" required />
-                    <TextField
-                      icon="account-outline"
-                      placeholder="Search or enter name"
-                      value={collectedBy}
-                      onChangeText={setCollectedBy}
-                    />
+                    <View style={styles.memberSearchBox}>
+                      <TextField
+                        icon="account-outline"
+                        placeholder="Search member..."
+                        value={memberSearch}
+                        onChangeText={handleMemberSearch}
+                      />
+                      {showMembers && members.length > 0 && (
+                        <View style={styles.memberDropdown}>
+                          <ScrollView
+                            nestedScrollEnabled
+                            style={styles.memberList}
+                          >
+                            {members.map((member, idx) => (
+                              <TouchableOpacity
+                                key={idx}
+                                style={styles.memberItem}
+                                onPress={() => selectMember(member)}
+                              >
+                                <View>
+                                  <Text style={styles.memberName}>
+                                    {member.name}
+                                  </Text>
+                                  <Text style={styles.memberCode}>
+                                    {member.memberCode ||
+                                      member.mobileNumber ||
+                                      'N/A'}
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      )}
+                    </View>
+                    {collectedBy ? (
+                      <Text style={styles.selectedMember}>{collectedBy}</Text>
+                    ) : null}
                   </View>
 
                   <View style={shared.col}>
@@ -472,6 +557,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp('4%'),
     paddingTop: 14,
     paddingBottom: 24,
+  },
+
+  memberSearchBox: {
+    position: 'relative',
+  },
+
+  memberDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 200,
+    zIndex: 100,
+  },
+
+  memberList: {
+    maxHeight: 200,
+  },
+
+  memberItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral.border,
+  },
+
+  memberName: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: colors.TitleColor,
+  },
+
+  memberCode: {
+    fontSize: FontSize.xs,
+    fontFamily: FontFamily.regular,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+
+  selectedMember: {
+    fontSize: FontSize.xs,
+    fontFamily: FontFamily.medium,
+    color: colors.success,
+    marginTop: 6,
+    paddingHorizontal: 12,
   },
 
   // Organisation

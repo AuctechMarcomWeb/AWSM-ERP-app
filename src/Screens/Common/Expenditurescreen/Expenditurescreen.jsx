@@ -275,6 +275,7 @@ const ExpenditureScreen = ({ navigation }) => {
       console.log('🔹 Filters changed, loading expenditures');
       loadExpenditures(1, false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, expenseType, fromDate, toDate]);
 
   // Pull-to-refresh handler

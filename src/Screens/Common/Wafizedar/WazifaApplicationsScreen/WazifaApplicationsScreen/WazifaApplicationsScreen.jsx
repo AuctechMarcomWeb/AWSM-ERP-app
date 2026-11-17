@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,175 +25,148 @@ import {
   GreenButton,
   GrayButton,
   Badge,
-  shared,
 } from '../../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
-const STATUSES = ['All Status', 'Pending', 'Verified', 'Rejected'];
-const FORM_TYPES = ['All Types', 'New', 'Renewal'];
-const SESSIONS = ['All Sessions', '2026-2027', '2025-2026'];
+import {
+  fetchWazifaApplications,
+  fetchSessions,
+  deleteWazifaApplication,
+  updateWazifaStatus,
+} from '../../../../../api/wazifa';
+import UpdateStatusModal from './UpdateStatusModal';
 
-const APPLICATIONS = [
-  {
-    id: '1',
-    portalId: '202610174685',
-    wazifaNo: '001527',
-    name: 'Ali Raza',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'BA/BCOM',
-    institution: 'shia pg college',
-    annualFees: 'Rs 6,874',
-    appliedOn: '17 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '2',
-    portalId: '202610132596',
-    wazifaNo: '001526',
-    name: 'Adeeba mansoor',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'MCA/MBA/MFA/MSW',
-    institution: 'Amu',
-    annualFees: 'Rs 25,000',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '3',
-    portalId: '202610136018',
-    wazifaNo: '001525',
-    name: 'Areeba Fatima',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'ITI. BPTPARA MEDICAL COURSES',
-    institution: 'Era University, Sarfarazganj, Lucknow',
-    annualFees: 'Rs 77,500',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '4',
-    portalId: '202610131619',
-    wazifaNo: '001524',
-    name: 'SYED KAZIM ABBAS',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'BSC(BIOTECHNOLOGY)&TOURISM',
-    institution: 'ERA UNIVERSITY, LUCKNOW',
-    annualFees: 'Rs 1,00,000',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '5',
-    portalId: '202610135553',
-    wazifaNo: '001523',
-    name: 'Taib ali',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'OTHERS',
-    institution: 'Jamia millia islamia',
-    annualFees: 'Rs 80,000',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '6',
-    portalId: '202610138000',
-    wazifaNo: '001522',
-    name: 'Mehzabi',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'OTHERS',
-    institution: 'AMU',
-    annualFees: 'Rs 28,500',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '7',
-    portalId: '202610133873',
-    wazifaNo: '001521',
-    name: 'Mohammad Ali Hasnain',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'BA/BCOM',
-    institution: 'Jamia Millia Islamia, New Delhi',
-    annualFees: 'Rs 76,750',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '8',
-    portalId: '202610139944',
-    wazifaNo: '001520',
-    name: 'Mohd adil',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'IIT/B TECH/B E DEGREE COURSES',
-    institution: 'AMU',
-    annualFees: 'Rs 65,000',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '9',
-    portalId: '202610131815',
-    wazifaNo: '001519',
-    name: 'Mohd zeeshan khan',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'IIT/B TECH/B E DEGREE COURSES',
-    institution: 'AMU',
-    annualFees: 'Rs 65,000',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
-  {
-    id: '10',
-    portalId: '202610134889',
-    wazifaNo: '001518',
-    name: 'Salman Ahmad',
-    formType: 'New',
-    studentLevel: 'Senior',
-    session: '2026-2027',
-    course: 'OTHERS',
-    institution: 'AMU',
-    annualFees: 'Rs 45,000',
-    appliedOn: '13 Oct 2026',
-    status: 'Pending',
-  },
+const STATUSES = [
+  'All Status',
+  'Pending',
+  'Shortlisted',
+  'Approved',
+  'Rejected',
 ];
+const FORM_TYPES = ['All Types', 'New', 'Renewal'];
 
 const WazifaApplicationsScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [applications, setApplications] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10;
+
+  // Update Status Modal State
+  const [updateStatusModalOpen, setUpdateStatusModalOpen] = useState(false);
+  const [selectedApplicationId, setSelectedApplicationId] = useState(null);
+  const [selectedApplicationData, setSelectedApplicationData] = useState(null);
 
   const [applied, setApplied] = useState({
     search: '',
     status: 'All Status',
     formType: 'All Types',
+    courseType: 'All',
     session: 'All Sessions',
   });
 
   const [draftStatus, setDraftStatus] = useState('All Status');
   const [draftFormType, setDraftFormType] = useState('All Types');
+  const [draftCourseType, setDraftCourseType] = useState('All');
   const [draftSession, setDraftSession] = useState('All Sessions');
+
+  // Map to store session name -> _id mapping
+  const sessionMap = useMemo(() => {
+    const map = { 'All Sessions': 'All Sessions' };
+    sessions.forEach(s => {
+      map[s.name] = s._id;
+    });
+    return map;
+  }, [sessions]);
+
+  // Load sessions
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        const result = await fetchSessions();
+        if (result.success && result.sessions) {
+          setSessions(result.sessions);
+        }
+      } catch (error) {
+        console.error('Error loading sessions:', error);
+      }
+    };
+    loadSessions();
+  }, []);
+
+  // Load applications
+  const loadApplications = useCallback(
+    async (pageNum = 1, isRefresh = false) => {
+      if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      try {
+        const result = await fetchWazifaApplications({
+          page: pageNum,
+          limit: pageSize,
+          search: applied.search,
+          status: applied.status !== 'All Status' ? applied.status : '',
+          formType: applied.formType !== 'All Types' ? applied.formType : '',
+          courseType: applied.courseType !== 'All' ? applied.courseType : '',
+          session: applied.session !== 'All Sessions' ? applied.session : '',
+        });
+
+        if (result.success) {
+          const newData = result.applications || [];
+
+          if (pageNum === 1) {
+            setApplications(newData);
+          } else {
+            setApplications(prev => [...prev, ...newData]);
+          }
+
+          setPage(pageNum);
+          setHasMore(newData.length === pageSize);
+        }
+      } catch (error) {
+        console.error('Error loading applications:', error);
+        Alert.alert('Error', 'Failed to load applications');
+      } finally {
+        if (pageNum === 1) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
+      }
+    },
+    [applied, pageSize],
+  );
+
+  // Load applications when filters change
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    loadApplications(1);
+  }, [applied, loadApplications]);
+
+  const handleLoadMore = () => {
+    if (hasMore && !loading && !loadingMore) {
+      loadApplications(page + 1);
+    }
+  };
+
+  const handleRefresh = () => {
+    setPage(1);
+    setHasMore(true);
+    loadApplications(1, true);
+  };
 
   const openFilter = () => {
     setDraftStatus(applied.status);
     setDraftFormType(applied.formType);
+    setDraftCourseType(applied.courseType);
     setDraftSession(applied.session);
     setFilterOpen(true);
   };
@@ -200,58 +176,83 @@ const WazifaApplicationsScreen = ({ navigation }) => {
       ...prev,
       status: draftStatus,
       formType: draftFormType,
-      session: draftSession,
+      courseType: draftCourseType,
+      session:
+        draftSession === 'All Sessions'
+          ? 'All Sessions'
+          : sessionMap[draftSession],
     }));
+    setHasMore(true);
     setFilterOpen(false);
   };
 
   const handleReset = () => {
     setDraftStatus('All Status');
     setDraftFormType('All Types');
+    setDraftCourseType('All');
     setDraftSession('All Sessions');
     setSearch('');
     setApplied({
       search: '',
       status: 'All Status',
       formType: 'All Types',
+      courseType: 'All',
       session: 'All Sessions',
     });
+    setPage(1);
+    setHasMore(true);
+  };
+
+  const hasActiveFilters =
+    applied.status !== 'All Status' ||
+    applied.formType !== 'All Types' ||
+    applied.courseType !== 'All' ||
+    applied.session !== 'All Sessions';
+
+  const handleDelete = async id => {
+    Alert.alert(
+      'Delete Application',
+      'Are you sure you want to delete this application?',
+      [
+        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            try {
+              const result = await deleteWazifaApplication(id);
+              if (result.success) {
+                Alert.alert('Success', 'Application deleted successfully');
+                setPage(1);
+                setHasMore(true);
+                loadApplications(1);
+              } else {
+                Alert.alert('Error', result.message);
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete application');
+            }
+          },
+          style: 'destructive',
+        },
+      ],
+    );
+  };
+
+  const handleUpdateStatus = item => {
+    setSelectedApplicationId(item._id);
+    setSelectedApplicationData(item);
+    setUpdateStatusModalOpen(true);
   };
 
   const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return APPLICATIONS.filter(item => {
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
-      if (
-        applied.formType !== 'All Types' &&
-        item.formType !== applied.formType
-      )
-        return false;
-      if (
-        applied.session !== 'All Sessions' &&
-        item.session !== applied.session
-      )
-        return false;
-
-      if (
-        q &&
-        !item.name.toLowerCase().includes(q) &&
-        !item.wazifaNo.toLowerCase().includes(q) &&
-        !item.portalId.toLowerCase().includes(q) &&
-        !item.institution.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
+    return applications;
+  }, [applications]);
 
   const renderItem = ({ item, index }) => (
     <View style={styles.appCard}>
       <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>{index + 1}</Text>
-        <Text style={styles.portalIdText}>Portal ID: {item.portalId}</Text>
+        <Text style={styles.srNo}>{(page - 1) * pageSize + index + 1}</Text>
+        <Text style={styles.portalIdText}>Portal ID: {item.acountNo}</Text>
         <Badge text={item.status} />
       </View>
 
@@ -260,11 +261,11 @@ const WazifaApplicationsScreen = ({ navigation }) => {
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Student Name</Text>
-          <Text style={styles.valTextBold}>{item.name}</Text>
+          <Text style={styles.valTextBold}>{item.studentName}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Wazifa No.</Text>
-          <Text style={styles.valTextPrimary}>{item.wazifaNo}</Text>
+          <Text style={styles.valTextPrimary}>{item.applicationNo}</Text>
         </View>
       </View>
 
@@ -272,7 +273,7 @@ const WazifaApplicationsScreen = ({ navigation }) => {
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Course / Level</Text>
           <Text style={styles.valText}>
-            {item.course} ({item.studentLevel})
+            {item.courseOfStudy} ({item.courseType})
           </Text>
         </View>
         <View style={styles.infoColRight}>
@@ -284,39 +285,63 @@ const WazifaApplicationsScreen = ({ navigation }) => {
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Institution</Text>
-          <Text style={styles.valText}>{item.institution}</Text>
+          <Text style={styles.valText}>{item.institutionName}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Annual Fees</Text>
-          <Text style={styles.valFees}>{item.annualFees}</Text>
+          <Text style={styles.valFees}>
+            Rs {Number(item.totalAnnualFees).toLocaleString('en-IN')}
+          </Text>
         </View>
       </View>
 
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Session</Text>
-          <Text style={styles.valText}>{item.session}</Text>
+          <Text style={styles.valText}>{item.sessionName}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>Applied On</Text>
-          <Text style={styles.valText}>{item.appliedOn}</Text>
+          <Text style={styles.valText}>
+            {item.createdAt
+              ? new Date(item.createdAt).toLocaleDateString()
+              : 'N/A'}
+          </Text>
         </View>
       </View>
 
-      {/* Update Status Button */}
-      {/* <TouchableOpacity
-        style={styles.updateStatusBtn}
-        activeOpacity={0.8}
-        onPress={() => {}}
-      >
-        <Icon
-          name="update"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.updateStatusText}>Update Status</Text>
-      </TouchableOpacity> */}
+      {/* Action Buttons Row */}
+      <View style={styles.actionButtonsRow}>
+        {/* Update Status Button */}
+        <TouchableOpacity
+          style={styles.updateStatusBtn}
+          activeOpacity={0.8}
+          onPress={() => handleUpdateStatus(item)}
+        >
+          <Icon
+            name="pencil-outline"
+            size={14}
+            color={colors.primary}
+            style={styles.actionBtnIcon}
+          />
+          <Text style={styles.updateStatusBtnText}>Update Status</Text>
+        </TouchableOpacity>
+
+        {/* Delete Button */}
+        <TouchableOpacity
+          style={styles.deleteBtnSmall}
+          activeOpacity={0.8}
+          onPress={() => handleDelete(item._id)}
+        >
+          <Icon
+            name="trash-can-outline"
+            size={14}
+            color="#DC2626"
+            style={styles.actionBtnIcon}
+          />
+          <Text style={styles.deleteSmallBtnText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -337,6 +362,23 @@ const WazifaApplicationsScreen = ({ navigation }) => {
               renderItem={renderItem}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={loading}
+                  onRefresh={handleRefresh}
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
+                />
+              }
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.2}
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : null
+              }
               ListHeaderComponent={
                 <View>
                   {/* Search Field & Filter Icon Row */}
@@ -362,44 +404,13 @@ const WazifaApplicationsScreen = ({ navigation }) => {
                         size={22}
                         color={colors.white}
                       />
+                      {hasActiveFilters && (
+                        <View style={styles.filterBadgeDot} />
+                      )}
                     </TouchableOpacity>
                   </View>
 
-                  {/* Stats Cards Row */}
-                  <View style={styles.statsRow}>
-                    <View style={styles.statCard}>
-                      <Icon
-                        name="file-document-outline"
-                        size={18}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.statVal}>1,248</Text>
-                      <Text style={styles.statLbl}>Total</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                      <Icon name="clock-outline" size={18} color="#D97706" />
-                      <Text style={styles.statVal}>356</Text>
-                      <Text style={styles.statLbl}>Pending</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                      <Icon
-                        name="check-circle-outline"
-                        size={18}
-                        color={colors.success}
-                      />
-                      <Text style={styles.statVal}>842</Text>
-                      <Text style={styles.statLbl}>Verified</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                      <Icon
-                        name="close-circle-outline"
-                        size={18}
-                        color="#DC2626"
-                      />
-                      <Text style={styles.statVal}>50</Text>
-                      <Text style={styles.statLbl}>Rejected</Text>
-                    </View>
-                  </View>
+          
                 </View>
               }
               ListEmptyComponent={
@@ -412,19 +423,6 @@ const WazifaApplicationsScreen = ({ navigation }) => {
                 </View>
               }
             />
-
-            {/* Bottom Add Button */}
-            <View style={styles.bottom}>
-              <GreenButton
-                title="+ New Application"
-                icon="plus"
-                onPress={() =>
-                  navigation &&
-                  navigation.navigate('AddWazifaApplicationScreen')
-                }
-                style={styles.addButton}
-              />
-            </View>
           </Body>
         </View>
 
@@ -470,7 +468,10 @@ const WazifaApplicationsScreen = ({ navigation }) => {
               <Label text="Session" />
               <Dropdown
                 value={draftSession}
-                options={SESSIONS}
+                options={[
+                  'All Sessions',
+                  ...sessions.map(s => s.name || s._id),
+                ]}
                 onSelect={setDraftSession}
                 style={styles.modalGap}
               />
@@ -490,6 +491,26 @@ const WazifaApplicationsScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {/* Update Status Modal */}
+        <UpdateStatusModal
+          visible={updateStatusModalOpen}
+          onClose={() => {
+            setUpdateStatusModalOpen(false);
+            setSelectedApplicationId(null);
+            setSelectedApplicationData(null);
+          }}
+          applicationId={selectedApplicationId}
+          applicationData={selectedApplicationData}
+          onSuccess={() => {
+            setUpdateStatusModalOpen(false);
+            setSelectedApplicationId(null);
+            setSelectedApplicationData(null);
+            setPage(1);
+            setHasMore(true);
+            loadApplications(1);
+          }}
+        />
       </View>
     </AppLayout>
   );
@@ -526,6 +547,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   statsRow: {
@@ -625,23 +665,85 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     color: '#15803D',
   },
-  updateStatusBtn: {
+updateStatusBtn: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: colors.primaryLight,
+  borderRadius: 8,
+  paddingVertical: 13,
+  marginTop: 8,
+  borderWidth: 1,
+  borderColor: '#C6F6D5',
+},
+
+updateStatusBtnText: {
+  fontSize: FontSize.sm,
+  fontFamily: FontFamily.bold,
+  color: colors.primary,
+},
+
+actionButtonsRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+  marginTop: 8,
+},
+
+actionBtnIcon: {
+  marginRight: 6,
+},
+
+deleteBtnSmall: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#FEF2F2',
+  borderRadius: 8,
+  paddingVertical: 13,
+  marginTop: 8,
+  borderWidth: 1,
+  borderColor: '#FECACA',
+},
+
+deleteSmallBtnText: {
+  fontSize: FontSize.sm,
+  fontFamily: FontFamily.bold,
+  color: '#DC2626',
+},
+
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.medium,
+    color: colors.textSecondary,
+  },
+  deleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
+    backgroundColor: '#FEF2F2',
     borderRadius: 8,
     paddingVertical: 8,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#C6F6D5',
+    borderColor: '#FECACA',
   },
-  updateStatusText: {
+  deleteIcon: {
+    marginRight: 6,
+  },
+  deleteBtnText: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
-    color: colors.primary,
+    color: '#DC2626',
   },
-
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
