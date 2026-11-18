@@ -6,6 +6,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 
 import colors from '../../../themes/colors';
@@ -20,44 +21,56 @@ import {
   shared,
 } from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { createBank, updateBank } from '../../../api/masters';
 
 const STATUS_OPTIONS = ['Active', 'Suspended', 'Expired'];
 
-const AddBankScreen = ({ navigation }) => {
+const AddBankScreen = ({ navigation, route }) => {
+  const { bankData } = route?.params || {};
+  const isEdit = !!bankData;
+
   const [form, setForm] = useState({
-    bankName: '',
-    ifsc: '',
-    accountNumber: '',
-    branchAddress: '',
-    description: '',
-    status: 'Active',
+    name: bankData?.name || '',
+    ifsc: bankData?.ifsc || '',
+    accountNumber: bankData?.accountNumber || '',
+    branchAddress: bankData?.branchAddress || '',
+    description: bankData?.description || '',
+    isActive: bankData?.isActive ?? true,
   });
+
+  const [loading, setLoading] = useState(false);
 
   const updateField = (key, value) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = () => {
-    if (!form.bankName.trim()) {
+  const handleSave = async () => {
+    if (!form.name.trim()) {
       Alert.alert('Validation Error', 'Please enter Bank Name.');
       return;
     }
-    if (!form.ifsc.trim()) {
-      Alert.alert('Validation Error', 'Please enter IFSC Number.');
-      return;
-    }
-    if (!form.accountNumber.trim()) {
-      Alert.alert('Validation Error', 'Please enter Account Number.');
-      return;
-    }
-    if (!form.branchAddress.trim()) {
-      Alert.alert('Validation Error', 'Please enter Branch Address.');
-      return;
-    }
 
-    Alert.alert('Success', 'Bank added successfully!', [
-      { text: 'OK', onPress: () => navigation && navigation.goBack() },
-    ]);
+    setLoading(true);
+    try {
+      const result = isEdit
+        ? await updateBank(bankData._id, form)
+        : await createBank(form);
+
+      if (result?.success || result?.statusCode === 200) {
+        Alert.alert(
+          'Success',
+          isEdit ? 'Bank updated successfully!' : 'Bank added successfully!',
+          [{ text: 'OK', onPress: () => navigation && navigation.goBack() }],
+        );
+      } else {
+        Alert.alert('Error', result?.message || 'Something went wrong');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to save bank');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,7 +78,7 @@ const AddBankScreen = ({ navigation }) => {
       <View style={styles.container}>
         <BackHeader
           navigation={navigation}
-          title="Add Bank"
+          title={isEdit ? 'Edit Bank' : 'Add Bank'}
           onBack={() => navigation && navigation.goBack()}
         />
 
@@ -83,41 +96,44 @@ const AddBankScreen = ({ navigation }) => {
                 <Label text="Bank Name *" />
                 <TextField
                   placeholder="e.g. State Bank of India (SBI)"
-                  value={form.bankName}
-                  onChangeText={t => updateField('bankName', t)}
+                  value={form.name}
+                  onChangeText={t => updateField('name', t)}
                   style={styles.mb}
+                  icon="bank"
                 />
 
                 {/* IFSC Number & Account Number */}
                 <View style={[shared.row, styles.gapRow]}>
                   <View style={shared.colL}>
-                    <Label text="IFSC Number *" />
+                    <Label text="IFSC Number" />
                     <TextField
                       placeholder="e.g. SBIN0001234"
                       autoCapitalize="characters"
                       value={form.ifsc}
                       onChangeText={t => updateField('ifsc', t)}
+                      icon="code-string"
                     />
                   </View>
                   <View style={shared.col}>
-                    <Label text="Account Number *" />
+                    <Label text="Account Number" />
                     <TextField
                       placeholder="e.g. 1234567890"
                       keyboardType="number-pad"
                       value={form.accountNumber}
                       onChangeText={t => updateField('accountNumber', t)}
+                      icon="credit-card"
                     />
                   </View>
                 </View>
 
                 {/* Branch Address */}
-                <Label text="Branch Address *" />
+                <Label text="Branch Address" />
                 <TextField
                   placeholder="e.g. Main Branch, Connaught Place, New Delhi"
                   value={form.branchAddress}
                   onChangeText={t => updateField('branchAddress', t)}
                   style={styles.mb}
-                  multiline
+                  icon="map-marker"
                 />
 
                 {/* Description & Status */}
@@ -125,17 +141,20 @@ const AddBankScreen = ({ navigation }) => {
                   <View style={shared.colL}>
                     <Label text="Description" />
                     <TextField
-                      placeholder="e.g. Primary account for collections"
+                      placeholder="e.g. Primary account"
                       value={form.description}
                       onChangeText={t => updateField('description', t)}
+                      icon="note-text"
                     />
                   </View>
                   <View style={shared.col}>
                     <Label text="Status" />
                     <Dropdown
-                      value={form.status}
-                      options={STATUS_OPTIONS}
-                      onSelect={val => updateField('status', val)}
+                      value={form.isActive ? 'Active' : 'Inactive'}
+                      options={['Active', 'Inactive']}
+                      onSelect={val =>
+                        updateField('isActive', val === 'Active')
+                      }
                     />
                   </View>
                 </View>
@@ -143,12 +162,24 @@ const AddBankScreen = ({ navigation }) => {
                 {/* Submit Button */}
                 <View style={styles.btnContainer}>
                   <GreenButton
-                    title="Save Bank"
-                    icon="check"
+                    title={
+                      loading
+                        ? 'Saving...'
+                        : isEdit
+                        ? 'Update Bank'
+                        : 'Save Bank'
+                    }
                     onPress={handleSave}
+                    disabled={loading}
                     style={styles.submitBtn}
                   />
                 </View>
+
+                {loading && (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                  </View>
+                )}
               </Body>
             </ScrollView>
           </KeyboardAvoidingView>
@@ -175,7 +206,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp('4%'),
     paddingTop: 16,
     paddingBottom: 30,
-     marginTop: 25,
+    marginTop: 25,
   },
   gapRow: {
     marginBottom: 12,
@@ -188,6 +219,17 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     height: 50,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 8,
   },
 });
 

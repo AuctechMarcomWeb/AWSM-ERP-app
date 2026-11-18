@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,9 +22,12 @@ import {
   TextField,
   Dropdown,
   GreenButton,
+  GrayButton,
   shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+
+import { useOfficeBearers } from '../../../../hooks/useOrganization';
 
 const DESIGNATIONS = [
   'President',
@@ -45,7 +49,13 @@ const DESIGNATIONS = [
 const TENURES = ['2025-2026', '2024-2025', '2026-2027'];
 const STATUS_OPTIONS = ['Active', 'Suspended', 'Expired'];
 
-const AddOfficeBearerScreen = ({ navigation }) => {
+const AddOfficeBearerScreen = ({ navigation, route }) => {
+  // Get bearer from route params if editing
+  const { bearer } = route?.params || {};
+  const isEdit = !!bearer;
+
+  const { createBearer, updateBearer } = useOfficeBearers();
+
   const [form, setForm] = useState({
     name: '',
     designation: 'President',
@@ -56,26 +66,109 @@ const AddOfficeBearerScreen = ({ navigation }) => {
     status: 'Active',
   });
 
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  // Initialize form with bearer data if editing
+  useEffect(() => {
+    if (isEdit && bearer) {
+      setForm({
+        name: bearer.name || '',
+        designation: bearer.designation || 'President',
+        tenure: bearer.tenure || '2025-2026',
+        city: bearer.city || '',
+        mobile: bearer.mobile || '',
+        landline: bearer.landline || '',
+        status: bearer.status || 'Active',
+      });
+    }
+  }, [bearer, isEdit]);
+
   const updateField = (key, value) => {
     setForm(prev => ({ ...prev, [key]: value }));
+    if (errors[key]) setErrors(prev => ({ ...prev, [key]: '' }));
   };
 
-  const handleSave = () => {
+  const validateForm = () => {
+    const newErrors = {};
+
     if (!form.name.trim()) {
-      Alert.alert('Validation Error', 'Please enter Office Bearer Name.');
-      return;
+      newErrors.name = 'Name is required';
     }
-    if (!form.mobile.trim() || form.mobile.length < 10) {
-      Alert.alert(
-        'Validation Error',
-        'Please enter a valid 10-digit mobile number.',
-      );
+
+    if (!form.mobile.trim()) {
+      newErrors.mobile = 'Mobile number is required';
+    } else if (!/^[0-9]{10}$/.test(form.mobile.replace(/\D/g, ''))) {
+      newErrors.mobile = 'Mobile must be 10 digits';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) {
       return;
     }
 
-    Alert.alert('Success', 'Office Bearer added successfully!', [
-      { text: 'OK', onPress: () => navigation && navigation.goBack() },
-    ]);
+    setSubmitting(true);
+
+    try {
+      let result;
+
+      if (isEdit) {
+        result = await updateBearer(bearer._id || bearer.id, form);
+      } else {
+        result = await createBearer(form);
+      }
+
+      if (result.success) {
+        Alert.alert(
+          'Success',
+          isEdit
+            ? 'Office Bearer updated successfully!'
+            : 'Office Bearer added successfully!',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation && navigation.goBack(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.message || 'Failed to save');
+      }
+    } catch (error) {
+      console.error('❌ Error:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (isEdit && bearer) {
+      setForm({
+        name: bearer.name || '',
+        designation: bearer.designation || 'President',
+        tenure: bearer.tenure || '2025-2026',
+        city: bearer.city || '',
+        mobile: bearer.mobile || '',
+        landline: bearer.landline || '',
+        status: bearer.status || 'Active',
+      });
+    } else {
+      setForm({
+        name: '',
+        designation: 'President',
+        tenure: '2025-2026',
+        city: '',
+        mobile: '',
+        landline: '',
+        status: 'Active',
+      });
+    }
+    setErrors({});
   };
 
   return (
@@ -83,7 +176,7 @@ const AddOfficeBearerScreen = ({ navigation }) => {
       <View style={styles.container}>
         <BackHeader
           navigation={navigation}
-          title="Add Office Bearer"
+          title={isEdit ? 'Edit Office Bearer' : 'Add Office Bearer'}
           onBack={() => navigation && navigation.goBack()}
         />
 
@@ -106,6 +199,7 @@ const AddOfficeBearerScreen = ({ navigation }) => {
                   onChangeText={t => updateField('name', t)}
                   style={styles.mb}
                 />
+                {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
                 {/* Designation */}
                 <Label text="Designation *" />
@@ -156,6 +250,7 @@ const AddOfficeBearerScreen = ({ navigation }) => {
                       value={form.mobile}
                       onChangeText={t => updateField('mobile', t)}
                     />
+                    {errors.mobile && <Text style={styles.errorText}>{errors.mobile}</Text>}
                   </View>
                   <View style={shared.col}>
                     <Label text="Landline Number" />
@@ -171,12 +266,24 @@ const AddOfficeBearerScreen = ({ navigation }) => {
                 {/* Submit Button */}
                 <View style={styles.btnContainer}>
                   <GreenButton
-                    title="Save Office Bearer"
+                    title={submitting ? 'Saving...' : isEdit ? 'Update Bearer' : 'Save Office Bearer'}
                     icon="check"
                     onPress={handleSave}
+                    disabled={submitting}
+                    style={styles.submitBtn}
+                  />
+                  <GrayButton
+                    title="Reset"
+                    onPress={handleReset}
                     style={styles.submitBtn}
                   />
                 </View>
+
+                {submitting && (
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                  </View>
+                )}
               </Body>
             </ScrollView>
           </KeyboardAvoidingView>
@@ -212,11 +319,29 @@ const styles = StyleSheet.create({
   mb: {
     marginBottom: 12,
   },
+  errorText: {
+    fontSize: FontSize.xs,
+    fontFamily: FontFamily.regular,
+    color: '#DC2626',
+    marginTop: 4,
+  },
   btnContainer: {
     marginTop: 20,
+    gap: 10,
   },
   submitBtn: {
     height: 50,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
   },
 });
 

@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   labelKey: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },

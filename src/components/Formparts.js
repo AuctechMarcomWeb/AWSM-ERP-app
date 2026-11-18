@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
   StyleSheet,
+  FlatList,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -111,7 +112,7 @@ export const SearchField = ({ style, ...props }) => (
 export const Dropdown = ({
   value,
   placeholder = 'Select',
-  options,
+  options = [],
   onSelect,
   icon,
   searchable = false,
@@ -122,12 +123,35 @@ export const Dropdown = ({
 
   const list =
     searchable && q.trim()
-      ? options.filter(o => o.toLowerCase().includes(q.trim().toLowerCase()))
+      ? options.filter(o =>
+          String(o).toLowerCase().includes(q.trim().toLowerCase()),
+        )
       : options;
 
   const close = () => {
     setOpen(false);
     setQ('');
+  };
+
+  const renderItem = ({ item }) => {
+    const isSelected = item === value;
+
+    return (
+      <TouchableOpacity
+        style={[styles.sheetItem, isSelected && styles.sheetItemActive]}
+        activeOpacity={0.7}
+        onPress={() => {
+          onSelect(item);
+          close();
+        }}
+      >
+        <Text style={[styles.sheetText, isSelected && styles.sheetTextActive]}>
+          {item}
+        </Text>
+
+        {isSelected && <Icon name="check" size={18} color={colors.primary} />}
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -145,12 +169,14 @@ export const Dropdown = ({
             style={styles.fieldIcon}
           />
         )}
+
         <Text
           style={[styles.fieldText, !value && styles.placeholderText]}
           numberOfLines={1}
         >
           {value || placeholder}
         </Text>
+
         <Icon name="chevron-down" size={20} color="#111827" />
       </TouchableOpacity>
 
@@ -169,6 +195,7 @@ export const Dropdown = ({
             {searchable && (
               <View style={styles.sheetSearch}>
                 <Icon name="magnify" size={20} color="#6B7280" />
+
                 <TextInput
                   style={styles.sheetSearchInput}
                   placeholder="Search..."
@@ -180,40 +207,26 @@ export const Dropdown = ({
               </View>
             )}
 
-            <ScrollView
-              style={styles.sheetList}
-              keyboardShouldPersistTaps="handled"
-            >
-              {list.length === 0 && (
-                <Text style={styles.sheetEmpty}>No results</Text>
-              )}
-
-              {list.map(o => (
-                <TouchableOpacity
-                  key={o}
-                  style={[
-                    styles.sheetItem,
-                    o === value && styles.sheetItemActive,
-                  ]}
-                  onPress={() => {
-                    onSelect(o);
-                    close();
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.sheetText,
-                      o === value && styles.sheetTextActive,
-                    ]}
-                  >
-                    {o}
-                  </Text>
-                  {o === value && (
-                    <Icon name="check" size={18} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {list.length === 0 ? (
+              <Text style={styles.sheetEmpty}>No results</Text>
+            ) : (
+              <FlatList
+                data={list}
+                keyExtractor={(item, index) => `${index}-${item}`}
+                renderItem={renderItem}
+                style={styles.sheetList}
+                keyboardShouldPersistTaps="handled"
+                initialNumToRender={15}
+                maxToRenderPerBatch={15}
+                windowSize={7}
+                removeClippedSubviews={Platform.OS === 'android'}
+                getItemLayout={(data, index) => ({
+                  length: 46,
+                  offset: 46 * index,
+                  index,
+                })}
+              />
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -479,13 +492,13 @@ const styles = StyleSheet.create({
   //   overflow: 'hidden',
   // },
   body: {
-  flex: 1,
-  marginTop: -25,
-  backgroundColor: colors.white,
-  borderTopLeftRadius: 0,
-  borderTopRightRadius: 0,
-  overflow: 'visible',
-},
+    flex: 1,
+    marginTop: -25,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    overflow: 'visible',
+  },
 
   label: {
     fontSize: FontSize.base,
@@ -601,6 +614,7 @@ const styles = StyleSheet.create({
   },
 
   sheetList: {
+    height: 320,
     maxHeight: 320,
   },
 
@@ -723,7 +737,7 @@ const styles = StyleSheet.create({
 
   // Pill tabs
   pillRow: {
-    marginTop:20,
+    marginTop: 20,
     flexDirection: 'row',
     backgroundColor: '#F4F7F5',
     borderRadius: 12,

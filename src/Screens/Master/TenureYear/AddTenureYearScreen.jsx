@@ -1,111 +1,63 @@
 import React, { useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-
+import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import colors from '../../../themes/colors';
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
-import {
-  Body,
-  Label,
-  TextField,
-  Dropdown,
-  GreenButton,
-  shared,
-} from '../../../components/Formparts';
+import { Body, Label, TextField, Dropdown, GreenButton } from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { createTenureYear, updateTenureYear } from '../../../api/masters';
 
-const STATUS_OPTIONS = ['Active', 'Suspended', 'Expired'];
-const CURRENT_OPTIONS = ['Yes', 'No'];
+const AddTenureYearScreen = ({ navigation, route }) => {
+  const { tenureYearData } = route?.params || {};
+  const isEdit = !!tenureYearData;
+  const [form, setForm] = useState({ name: tenureYearData?.name || '', isActive: tenureYearData?.isActive ?? true });
+  const [loading, setLoading] = useState(false);
 
-const AddTenureYearScreen = ({ navigation }) => {
-  const [form, setForm] = useState({
-    tenure: '',
-    status: 'Active',
-    current: 'No',
-  });
-
-  const updateField = (key, value) => {
-    setForm(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = () => {
-    if (!form.tenure.trim()) {
-      Alert.alert(
-        'Validation Error',
-        'Please enter tenure year (e.g. 2025-2026).',
-      );
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      Alert.alert('Error', 'Please enter name');
       return;
     }
-
-    Alert.alert('Success', 'Tenure year added successfully!', [
-      { text: 'OK', onPress: () => navigation && navigation.goBack() },
-    ]);
+    setLoading(true);
+    try {
+      const result = isEdit ? await updateTenureYear(tenureYearData._id, form) : await createTenureYear(form);
+      if (result?.success || result?.statusCode === 200) {
+        Alert.alert('Success', isEdit ? 'Updated!' : 'Created!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      } else {
+        Alert.alert('Error', result?.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <AppLayout>
       <View style={styles.container}>
-        <BackHeader
-          navigation={navigation}
-          title="Add Tenure Year"
-          onBack={() => navigation && navigation.goBack()}
-        />
-
+        <BackHeader navigation={navigation} title={isEdit ? 'Edit' : 'Add'} onBack={() => navigation.goBack()} />
         <View style={styles.body}>
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-            >
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
               <Body>
-                {/* Tenure Year */}
-                <Label text="Tenure Year *" />
+                <Label text="Name *" />
                 <TextField
-                  placeholder="e.g. 2025-2026"
-                  value={form.tenure}
-                  onChangeText={t => updateField('tenure', t)}
+                  placeholder="e.g. 2024-2025"
+                  value={form.name}
+                  onChangeText={(t) => setForm({ ...form, name: t })}
+                  style={styles.mb}
+                  icon="calendar"
+                />
+                <Label text="Status" />
+                <Dropdown
+                  value={form.isActive ? 'Active' : 'Inactive'}
+                  options={['Active', 'Inactive']}
+                  onSelect={(val) => setForm({ ...form, isActive: val === 'Active' })}
                   style={styles.mb}
                 />
-
-                {/* Status & Current Row */}
-                <View style={[shared.row, styles.gapRow]}>
-                  <View style={shared.colL}>
-                    <Label text="Status" />
-                    <Dropdown
-                      value={form.status}
-                      options={STATUS_OPTIONS}
-                      onSelect={val => updateField('status', val)}
-                    />
-                  </View>
-                  <View style={shared.col}>
-                    <Label text="Current Year" />
-                    <Dropdown
-                      value={form.current}
-                      options={CURRENT_OPTIONS}
-                      onSelect={val => updateField('current', val)}
-                    />
-                  </View>
-                </View>
-
-                {/* Submit Button */}
-                <View style={styles.btnContainer}>
-                  <GreenButton
-                    title="Save Tenure Year"
-                    icon="check"
-                    onPress={handleSave}
-                    style={styles.submitBtn}
-                  />
-                </View>
+                <GreenButton title={loading ? 'Saving...' : isEdit ? 'Update' : 'Save'} onPress={handleSave} disabled={loading} style={styles.submitBtn} />
+                {loading && <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /></View>}
               </Body>
             </ScrollView>
           </KeyboardAvoidingView>
@@ -116,36 +68,12 @@ const AddTenureYearScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F1F6F3',
-  },
-  body: {
-    flex: 1,
-    marginTop: 0,
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    overflow: 'hidden',
-  },
-  scrollContent: {
-    paddingHorizontal: wp('4%'),
-    paddingTop: 16,
-    paddingBottom: 30,
-    marginTop: 25,
-  },
-  gapRow: {
-    marginBottom: 12,
-  },
-  mb: {
-    marginBottom: 12,
-  },
-  btnContainer: {
-    marginTop: 20,
-  },
-  submitBtn: {
-    height: 50,
-  },
+  container: { flex: 1, backgroundColor: '#F1F6F3' },
+  body: { flex: 1, backgroundColor: colors.white },
+  scrollContent: { paddingHorizontal: wp('4%'), paddingTop: 16, paddingBottom: 30, marginTop: 25 },
+  mb: { marginBottom: 16 },
+  submitBtn: { height: 50, marginTop: 24 },
+  loadingContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8 },
 });
 
 export default AddTenureYearScreen;

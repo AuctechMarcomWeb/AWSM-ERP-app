@@ -7,6 +7,7 @@ import {
   Modal,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -28,6 +29,9 @@ import {
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { fetchMembersList } from '../../../../api/member';
+import { createAxiosInstance } from '../../../../api/apiConfig';
+
+const api = createAxiosInstance('');
 
 const MEMBER_TYPES = [
   'All Types',
@@ -48,16 +52,17 @@ const MEMBER_STATUSES = [
 const CITIZENSHIP_LIST = ['All', 'Indian', 'Foreign'];
 const PAYMENT_MODES = ['All Modes', 'Bank Transfer', 'UPI', 'Cash'];
 
-const DEFAULT_FROM = new Date(new Date().getFullYear(), 0, 1);
-const DEFAULT_TO = new Date();
-
 const MembershipListScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [membersData, setMembersData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [generatingAC, setGeneratingAC] = useState(false);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 10;
 
   // Debounce timer
   const searchTimerRef = React.useRef(null);
@@ -69,8 +74,8 @@ const MembershipListScreen = ({ navigation }) => {
     status: 'All Status',
     citizenship: 'All',
     paymentMode: 'All Modes',
-    from: DEFAULT_FROM,
-    to: DEFAULT_TO,
+    from: null,
+    to: null,
   });
 
   // Draft Filters in Modal
@@ -79,55 +84,117 @@ const MembershipListScreen = ({ navigation }) => {
   const [draftStatus, setDraftStatus] = useState('All Status');
   const [draftCitizenship, setDraftCitizenship] = useState('All');
   const [draftMode, setDraftMode] = useState('All Modes');
-  const [draftFrom, setDraftFrom] = useState(DEFAULT_FROM);
-  const [draftTo, setDraftTo] = useState(DEFAULT_TO);
+  const [draftFrom, setDraftFrom] = useState(null);
+  const [draftTo, setDraftTo] = useState(null);
 
   useEffect(() => {
-    loadMembers();
+    setPage(1);
+    setHasMore(true);
+    loadMembers(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadMembers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetchMembersList({
-        page,
-        limit: 50,
-        isPagination: true,
-        search: applied.search,
-        memberType: applied.memberType,
-        status: applied.status,
-        citizenship: applied.citizenship,
-      });
-
-      if (response.success) {
-        setMembersData(response.members);
-      } else {
-        setError(response.message || 'Failed to load members');
-        setMembersData([]);
-      }
-    } catch (err) {
-      console.error('❌ Error loading members:', err);
-      setError('Failed to load members');
-      setMembersData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load members when applied filters change
   useEffect(() => {
     if (
       applied.search ||
       applied.memberType !== 'All Types' ||
       applied.status !== 'All Status'
     ) {
-      loadMembers();
+      setPage(1);
+      setHasMore(true);
+      loadMembers(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applied, page]);
+  }, [applied]);
+
+  const loadMembers = async (pageNum = 1, isRefresh = false) => {
+    if (pageNum === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      setError(null);
+
+      const response = await fetchMembersList({
+        page: pageNum,
+        limit: pageSize,
+        isPagination: true,
+        search: applied.search,
+        memberType:
+          applied.memberType !== 'All Types' ? applied.memberType : '',
+        status: applied.status !== 'All Status' ? applied.status : '',
+        citizenship: applied.citizenship !== 'All' ? applied.citizenship : '',
+      });
+
+      if (response.success) {
+        const newData = response.members || [];
+
+        if (pageNum === 1) {
+          setMembersData(newData);
+        } else {
+          setMembersData(prev => [...prev, ...newData]);
+        }
+
+        setPage(pageNum);
+        setHasMore(newData.length === pageSize);
+      } else {
+        setError(response.message || 'Failed to load members');
+        if (pageNum === 1) {
+          setMembersData([]);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Error loading members:', err);
+      setError('Failed to load members');
+      if (pageNum === 1) {
+        setMembersData([]);
+      }
+    } finally {
+      if (pageNum === 1) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (hasMore && !loading && !loadingMore) {
+      loadMembers(page + 1);
+    }
+  };
+
+  const handleRefresh = () => {
+    setPage(1);
+    setHasMore(true);
+    loadMembers(1, true);
+  };
+
+  const generateMissingAccountNumbers = async () => {
+    try {
+      setGeneratingAC(true);
+
+      const response = await api.post(
+        'membership/generate-missing-account-numbers',
+        {},
+      );
+
+      if (response.status === 200 || response.data?.success) {
+        // Reload members to show updated account numbers
+        setPage(1);
+        setHasMore(true);
+        loadMembers(1);
+        alert('Account numbers generated successfully!');
+      }
+    } catch (err) {
+      console.error('❌ Error generating account numbers:', err);
+      alert('Failed to generate account numbers');
+    } finally {
+      setGeneratingAC(false);
+    }
+  };
 
   // Debounced search
   const handleSearch = text => {
@@ -180,8 +247,8 @@ const MembershipListScreen = ({ navigation }) => {
     setDraftStatus('All Status');
     setDraftCitizenship('All');
     setDraftMode('All Modes');
-    setDraftFrom(DEFAULT_FROM);
-    setDraftTo(DEFAULT_TO);
+    setDraftFrom(null);
+    setDraftTo(null);
     setSearch('');
     setApplied({
       search: '',
@@ -189,12 +256,27 @@ const MembershipListScreen = ({ navigation }) => {
       status: 'All Status',
       citizenship: 'All',
       paymentMode: 'All Modes',
-      from: DEFAULT_FROM,
-      to: DEFAULT_TO,
+      from: null,
+      to: null,
     });
     setMembersData([]);
     setPage(1);
+    setHasMore(true);
   };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (applied.search?.trim()) count++;
+    if (applied.memberType !== 'All Types') count++;
+    if (applied.status !== 'All Status') count++;
+    if (applied.citizenship !== 'All') count++;
+    if (applied.paymentMode !== 'All Modes') count++;
+    if (applied.from) count++;
+    if (applied.to) count++;
+    return count;
+  };
+
+  const hasActiveFilters = getActiveFilterCount() > 0;
 
   const filteredData = useMemo(() => {
     // Filtering done backend via API
@@ -204,7 +286,7 @@ const MembershipListScreen = ({ navigation }) => {
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>#{index + 1}</Text>
+        <Text style={styles.srNo}>{index + 1}</Text>
         <Text style={styles.idText}>
           ID: {item.uniqueId} (M-ID: {item.memberId})
         </Text>
@@ -291,6 +373,23 @@ const MembershipListScreen = ({ navigation }) => {
                 renderItem={renderItem}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={loading}
+                    onRefresh={handleRefresh}
+                    colors={[colors.primary]}
+                    tintColor={colors.primary}
+                  />
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.2}
+                ListFooterComponent={
+                  loadingMore ? (
+                    <View style={styles.loadingMoreContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  ) : null
+                }
                 ListHeaderComponent={
                   <View>
                     <Text style={styles.screenDesc}>
@@ -317,6 +416,9 @@ const MembershipListScreen = ({ navigation }) => {
                           size={22}
                           color={colors.white}
                         />
+                        {hasActiveFilters && (
+                          <View style={styles.filterBadgeDot} />
+                        )}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -340,8 +442,9 @@ const MembershipListScreen = ({ navigation }) => {
             {/* Bottom Button Bar with Two Buttons */}
             <View style={styles.bottomBar}>
               <GreenButton
-                title="Generate A/C"
-                onPress={() => {}}
+                title={generatingAC ? 'Generating...' : 'Generate A/C'}
+                onPress={generateMissingAccountNumbers}
+                disabled={generatingAC}
                 style={styles.genButtonBar}
               />
             </View>
@@ -371,13 +474,7 @@ const MembershipListScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              <Label text="Search" />
-              <SearchField
-                placeholder="Search member..."
-                value={draftSearch}
-                onChangeText={setDraftSearch}
-                style={styles.modalGap}
-              />
+           
 
               <Label text="Member Type" />
               <Dropdown
@@ -447,11 +544,13 @@ const MembershipListScreen = ({ navigation }) => {
                   onPress={applyFilter}
                   style={styles.applyBtn}
                 />
-                <GrayButton
-                  title="Reset"
-                  onPress={handleReset}
-                  style={styles.resetBtn}
-                />
+                {hasActiveFilters && (
+                  <GrayButton
+                    title="Reset"
+                    onPress={handleReset}
+                    style={styles.resetBtn}
+                  />
+                )}
               </View>
             </View>
           </TouchableOpacity>
@@ -492,7 +591,7 @@ const styles = StyleSheet.create({
   },
 
   screenDesc: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: colors.textSecondary,
     marginBottom: 8,
@@ -515,6 +614,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   listContent: {
@@ -537,12 +655,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
   idText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },
@@ -564,7 +682,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   labelKey: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },
@@ -574,12 +692,12 @@ const styles = StyleSheet.create({
     color: colors.TitleColor,
   },
   valTextPrimary: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: colors.primary,
   },
   valText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: colors.TitleColor,
   },
@@ -607,7 +725,7 @@ const styles = StyleSheet.create({
     borderColor: '#FCA5A5',
   },
   exportButtonText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: '#DC2626',
   },

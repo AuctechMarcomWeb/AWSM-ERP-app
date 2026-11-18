@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
   Alert,
 } from 'react-native';
 
@@ -17,15 +19,15 @@ import AppLayout from '../../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../../components/BackHeader/BackHeader';
 import {
   Body,
+  GreenButton,
+  GrayButton,
   Label,
   SearchField,
   Dropdown,
-  GreenButton,
-  GrayButton,
-  Badge,
-  shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+
+import { useExecutiveMembers } from '../../../../hooks/useOrganization';
 
 const MEMBER_TYPES = [
   'All Types',
@@ -33,79 +35,26 @@ const MEMBER_TYPES = [
   'Nominated Member',
   'Life Member',
 ];
-
 const MEMBER_STATUSES = ['All Status', 'Active', 'Suspended', 'Expired'];
 const SORT_OPTIONS = ['Recent', 'Oldest', 'Name (A-Z)'];
 
-const EXECUTIVE_MEMBERS_DATA = [
-  {
-    id: '1',
-    memberId: '0001',
-    name: 'Haji Dr S Mohd. Abbas Zaidi',
-    memberType: 'Elected Member',
-    mobile: '9818244361',
-    age: '-',
-    city: 'New Delhi',
-    state: 'New Delhi',
-    address: 'Kothi No. 11, Noor Nagar Extension, Jamia Nagar, New Delhi -25',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    memberId: '0002',
-    name: 'Sanaul Hasan Zaidi',
-    memberType: 'Elected Member',
-    mobile: '9650241333',
-    age: '61 year',
-    city: 'Aligarh',
-    state: 'U.P',
-    address: 'A 102, Ishaq Residency, Sir Syed Nagar, Aligarh 202002',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    memberId: '0003',
-    name: 'Mirza Ali Abbas',
-    memberType: 'Elected Member',
-    mobile: '8318585254',
-    age: '-',
-    city: 'Gorakhpur',
-    state: 'U.P',
-    address:
-      'S/o Late Mirza Ishrat Husain, Khadim Kada, Sheikhpura opp Panjatan Sports Geeta Press Gorakhpur, U.P-273005',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    memberId: '0004',
-    name: 'Dr. Shujahat Husain',
-    memberType: 'Elected Member',
-    mobile: '7060888223',
-    age: '-',
-    city: 'Aligarh',
-    state: 'U.P',
-    address: '4/771, Friends Colony, Aligarh',
-    status: 'Active',
-  },
-  {
-    id: '5',
-    memberId: '0005',
-    name: 'S. M. Ahmad Rizvi (Gulrez)',
-    memberType: 'Elected Member',
-    mobile: '8349700786',
-    age: '-',
-    city: 'Bhopal',
-    state: 'M.P.',
-    address: 'Bhopal, Madhya Pradesh',
-    status: 'Active',
-  },
-];
-
 const ExecutiveMembersScreen = ({ navigation }) => {
+  const {
+    members,
+    loading,
+    page,
+    total,
+    loadMembers,
+    deleteMember,
+  } = useExecutiveMembers();
+
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const searchTimerRef = useRef(null);
 
-  // Applied Filters
+  // Filter states
   const [applied, setApplied] = useState({
     search: '',
     memberType: 'All Types',
@@ -113,29 +62,95 @@ const ExecutiveMembersScreen = ({ navigation }) => {
     sortBy: 'Recent',
   });
 
-  // Draft Filters in Modal
+  const [draftSearch, setDraftSearch] = useState('');
   const [draftType, setDraftType] = useState('All Types');
   const [draftStatus, setDraftStatus] = useState('All Status');
   const [draftSort, setDraftSort] = useState('Recent');
 
+  // Load initial data
+  useEffect(() => {
+    loadMembers(1, 50, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check if there's more data to load
+  useEffect(() => {
+    if (members.length > 0 && members.length < total) {
+      setHasMore(true);
+    } else if (members.length === 0 || members.length >= total) {
+      setHasMore(false);
+    }
+  }, [members, total]);
+
+  // Load when filters change
+  useEffect(() => {
+    setLoadingMore(false);
+    setHasMore(true);
+
+    loadMembers(1, 50, applied.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied]);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && !loading && !loadingMore && members.length > 0) {
+      setLoadingMore(true);
+      loadMembers(page + 1, 50, applied.search).finally(() => {
+        setLoadingMore(false);
+      });
+    }
+  }, [
+    hasMore,
+    loading,
+    loadingMore,
+    members.length,
+    page,
+    applied,
+    loadMembers,
+  ]);
+
+  const handleRefresh = useCallback(() => {
+    setHasMore(true);
+    loadMembers(1, 50, applied.search);
+  }, [applied, loadMembers]);
+
+  const handleSearchDebounce = text => {
+    setSearch(text);
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    if (text.length > 0) {
+      searchTimerRef.current = setTimeout(() => {
+        setApplied(prev => ({ ...prev, search: text }));
+      }, 500);
+    } else {
+      setApplied(prev => ({ ...prev, search: '' }));
+    }
+  };
+
   const openFilter = () => {
+    setDraftSearch(applied.search);
     setDraftType(applied.memberType);
     setDraftStatus(applied.status);
     setDraftSort(applied.sortBy);
-    setFilterOpen(true);
+    setTimeout(() => {
+      setFilterOpen(true);
+    }, 100);
   };
 
   const applyFilter = () => {
-    setApplied(prev => ({
-      ...prev,
+    setApplied({
+      search: draftSearch,
       memberType: draftType,
       status: draftStatus,
       sortBy: draftSort,
-    }));
+    });
     setFilterOpen(false);
   };
 
-  const handleReset = () => {
+  const resetFilter = () => {
+    setDraftSearch('');
     setDraftType('All Types');
     setDraftStatus('All Status');
     setDraftSort('Recent');
@@ -148,93 +163,119 @@ const ExecutiveMembersScreen = ({ navigation }) => {
     });
   };
 
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return EXECUTIVE_MEMBERS_DATA.filter(item => {
-      if (
-        applied.memberType !== 'All Types' &&
-        item.memberType !== applied.memberType
-      )
-        return false;
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
+  const hasActiveFilters =
+    applied.search?.trim() ||
+    applied.memberType !== 'All Types' ||
+    applied.status !== 'All Status' ||
+    applied.sortBy !== 'Recent';
 
-      if (
-        q &&
-        !item.name.toLowerCase().includes(q) &&
-        !item.memberId.toLowerCase().includes(q) &&
-        !item.city.toLowerCase().includes(q) &&
-        !item.mobile.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
+  const handleDelete = member => {
+    Alert.alert(
+      'Delete Executive Member',
+      `Are you sure you want to delete ${member.name}?`,
+      [
+        { text: 'Cancel', onPress: () => {} },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            const result = await deleteMember(member._id);
+            if (result.success) {
+              Alert.alert('Success', 'Deleted successfully');
+              handleRefresh();
+            } else {
+              Alert.alert('Error', result.message || 'Failed to delete');
+            }
+          },
+          style: 'destructive',
+        },
+      ],
+    );
+  };
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
-      <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>{index + 1}</Text>
-        <Text style={styles.idText}>ID: {item.memberId}</Text>
-        <Badge text={item.status} />
+      <View style={styles.cardHeader}>
+        <View style={styles.cardInfo}>
+          <Text style={styles.srNo}>#{(page - 1) * 50 + index + 1}</Text>
+          <Text style={styles.nameText} numberOfLines={1}>
+            {item.name}
+          </Text>
+        </View>
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() =>
+              navigation.navigate('AddExecutiveMembersScreen', {
+                member: item,
+              })
+            }
+          >
+            <Icon name="pencil" size={18} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.deleteBtnStyle]}
+            onPress={() => handleDelete(item)}
+          >
+            <Icon name="trash-can-outline" size={18} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.divider} />
 
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Name</Text>
-          <Text style={styles.valTextBold}>{item.name}</Text>
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Member ID</Text>
+          <Text style={styles.value} numberOfLines={1}>
+            {item.memberId || '-'}
+          </Text>
         </View>
-        <View style={styles.infoColRight}>
-          <Text style={styles.labelKey}>Member Type</Text>
-          <Text style={styles.valTextPrimary}>{item.memberType}</Text>
-        </View>
-      </View>
-
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Mobile No.</Text>
-          <Text style={styles.valText}>{item.mobile}</Text>
-        </View>
-        <View style={styles.infoColRight}>
-          <Text style={styles.labelKey}>Age</Text>
-          <Text style={styles.valText}>{item.age}</Text>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Member Type</Text>
+          <Text style={styles.value} numberOfLines={1}>
+            {item.memberType || '-'}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Location</Text>
-          <Text style={styles.valText}>
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Mobile</Text>
+          <Text style={styles.value} numberOfLines={1}>
+            {item.mobileNumber || item.mobile || '-'}
+          </Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Status</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor:
+                  item.status === 'Active' ? '#D1FAE5' : '#FEE2E2',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                { color: item.status === 'Active' ? '#065F46' : '#991B1B' },
+              ]}
+            >
+              {item.status || 'Inactive'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Location</Text>
+          <Text style={styles.value} numberOfLines={1}>
             {item.city}, {item.state}
           </Text>
         </View>
       </View>
-
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Address</Text>
-          <Text style={styles.valText} numberOfLines={2}>
-            {item.address}
-          </Text>
-        </View>
-      </View>
-
-      {/* <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() => {}}
-      >
-        <Icon
-          name="eye-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>View Details / Action</Text>
-      </TouchableOpacity> */}
     </View>
   );
 
@@ -249,90 +290,95 @@ const ExecutiveMembersScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* Top Bar: Export Button */}
-                  {/* <View style={styles.topHeaderRow}>
-                    <Text style={styles.screenDesc}>
-                      Manage Executive Members
-                    </Text>
+            {loading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <>
+                <FlatList
+                  data={members}
+                  keyExtractor={(item, idx) => item._id || idx.toString()}
+                  renderItem={renderItem}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.listContent}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={loading}
+                      onRefresh={handleRefresh}
+                      colors={[colors.primary]}
+                      tintColor={colors.primary}
+                    />
+                  }
+                  onEndReached={handleLoadMore}
+                  onEndReachedThreshold={0.2}
+                  ListFooterComponent={
+                    loadingMore ? (
+                      <View style={styles.loadingMoreContainer}>
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
+                      </View>
+                    ) : null
+                  }
+                  ListHeaderComponent={
+                    <View>
+                      <View style={styles.searchFilterContainer}>
+                        <View style={styles.searchFlex}>
+                          <SearchField
+                            placeholder="Search member..."
+                            value={search}
+                            onChangeText={handleSearchDebounce}
+                          />
+                        </View>
 
-                    <TouchableOpacity
-                      style={styles.exportBtn}
-                      activeOpacity={0.8}
-                      onPress={() =>
-                        Alert.alert(
-                          'Export',
-                          'Exporting executive members list...',
-                        )
-                      }
-                    >
-                      <Icon name="file-pdf-box" size={16} color="#DC2626" />
-                      <Text style={styles.exportText}>Export</Text>
-                    </TouchableOpacity>
-                  </View> */}
-
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search member name, ID, city..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
+                        <TouchableOpacity
+                          style={styles.filterButton}
+                          activeOpacity={0.8}
+                          onPress={openFilter}
+                        >
+                          <Icon
+                            name="filter-variant"
+                            size={22}
+                            color={colors.white}
+                          />
+                          {hasActiveFilters && (
+                            <View style={styles.filterBadgeDot} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
-
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
+                  }
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
                       <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
+                        name="account-group-outline"
+                        size={40}
+                        color="#9CA3AF"
                       />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon
-                    name="account-group-outline"
-                    size={40}
-                    color="#9CA3AF"
-                  />
-                  <Text style={styles.emptyTitle}>
-                    No executive members found
-                  </Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
+                      <Text style={styles.emptyTitle}>
+                        No executive members found
+                      </Text>
+                      <Text style={styles.emptySubtitle}>
+                        Try adjusting your search or filters.
+                      </Text>
+                    </View>
+                  }
+                />
 
-            {/* Bottom Button Bar for Adding New Member */}
-            <View style={styles.bottomBar}>
-              <GreenButton
-                title="+ Add Member"
-                icon="account-plus-outline"
-                onPress={() =>
-                  navigation.navigate('AddMembershipApplicationScreen')
-                }
-                style={styles.addButtonBar}
-              />
-            </View>
+                {/* Bottom Add Button */}
+                <View style={styles.bottomBar}>
+                  <GreenButton
+                    title="+ Add Member"
+                    onPress={() =>
+                      navigation.navigate('AddExecutiveMembersScreen')
+                    }
+                    style={styles.addBtn}
+                  />
+                </View>
+              </>
+            )}
           </Body>
         </View>
 
@@ -343,11 +389,12 @@ const ExecutiveMembersScreen = ({ navigation }) => {
           animationType="slide"
           onRequestClose={() => setFilterOpen(false)}
         >
-          <TouchableOpacity
-            style={styles.overlay}
-            activeOpacity={1}
-            onPress={() => setFilterOpen(false)}
-          >
+          <View style={styles.overlay}>
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => setFilterOpen(false)}
+            />
             <View
               style={styles.filterSheet}
               onStartShouldSetResponder={() => true}
@@ -389,14 +436,16 @@ const ExecutiveMembersScreen = ({ navigation }) => {
                   onPress={applyFilter}
                   style={styles.applyBtn}
                 />
-                <GrayButton
-                  title="Reset"
-                  onPress={handleReset}
-                  style={styles.resetBtn}
-                />
+                {hasActiveFilters && (
+                  <GrayButton
+                    title="Reset"
+                    onPress={resetFilter}
+                    style={styles.resetBtn}
+                  />
+                )}
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
       </View>
     </AppLayout>
@@ -416,45 +465,25 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
     overflow: 'hidden',
   },
-
-  topHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  screenDesc: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.regular,
-    color: colors.textSecondary,
+  centerContainer: {
     flex: 1,
-  },
-  exportBtn: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  exportText: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
-    color: '#DC2626',
-    marginLeft: 4,
+    paddingHorizontal: 20,
   },
 
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-        marginTop: 24,
+    marginBottom: 14,
+    marginTop: 30,
   },
+
   searchFlex: {
     flex: 1,
     marginRight: 8,
   },
+
   filterButton: {
     width: 48,
     height: 48,
@@ -463,13 +492,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.white,
   },
 
   listContent: {
     paddingHorizontal: wp('4%'),
-    paddingBottom: 20,
+    paddingBottom: 100,
     paddingTop: 8,
   },
+
   card: {
     backgroundColor: colors.cardColorLight,
     borderWidth: 1,
@@ -478,87 +521,96 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  cardTopRow: {
+
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
+
+  cardInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+
   srNo: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
-  idText: {
+
+  nameText: {
     fontSize: FontSize.sm,
-    fontFamily: FontFamily.medium,
-    color: colors.textSecondary,
+    fontFamily: FontFamily.semiBold,
+    color: colors.TitleColor,
+    marginTop: 2,
   },
+
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+
+  deleteBtnStyle: {
+    backgroundColor: '#FEE2E2',
+  },
+
   divider: {
     height: 1,
     backgroundColor: colors.neutral.border,
     marginBottom: 8,
   },
-  infoGrid: {
+
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  infoCol: {
+
+  infoItem: {
     flex: 1,
+    marginRight: 6,
   },
-  infoColRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  labelKey: {
-    fontSize: 10,
+
+  label: {
+    fontSize: 12,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
+    marginBottom: 2,
   },
-  valTextBold: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
-    color: colors.TitleColor,
-  },
-  valTextPrimary: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.semiBold,
-    color: colors.primary,
-  },
-  valText: {
+
+  value: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: colors.TitleColor,
   },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: 8,
-    paddingVertical: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  actionBtnText: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
+
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
 
-  // Bottom Button Bar
-  bottomBar: {
-    paddingHorizontal: wp('4%'),
-    paddingVertical: 12,
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral.border,
+  statusText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
   },
-  addButtonBar: {
-    height: 48,
-    width: '100%',
+
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   emptyContainer: {
@@ -566,6 +618,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 40,
   },
+
   emptyTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
@@ -573,11 +626,24 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 4,
   },
+
   emptySubtitle: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: '#6B7280',
     textAlign: 'center',
+  },
+
+  bottomBar: {
+    paddingHorizontal: wp('4%'),
+    paddingVertical: 12,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.border,
+  },
+
+  addBtn: {
+    height: 48,
   },
 
   // Filter Modal Styles
@@ -586,36 +652,44 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
+
   filterSheet: {
     backgroundColor: colors.white,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 20,
     paddingBottom: 30,
+    maxHeight: '85%',
   },
+
   modalHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
   },
+
   filterTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
     color: colors.TitleColor,
   },
+
   modalGap: {
     marginBottom: 12,
   },
+
   actionRow: {
     flexDirection: 'row',
     marginTop: 16,
   },
+
   applyBtn: {
     flex: 1,
     marginRight: 8,
     height: 48,
   },
+
   resetBtn: {
     flex: 1,
     height: 48,

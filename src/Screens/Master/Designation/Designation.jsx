@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
-  Modal,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -15,112 +16,126 @@ import { FontFamily, FontSize } from '../../../themes/typography';
 
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
-import {
-  Body,
-  Label,
-  SearchField,
-  Dropdown,
-  GreenButton,
-  GrayButton,
-  Badge,
-  shared,
-} from '../../../components/Formparts';
+import { Body, SearchField, GreenButton } from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
-
-const STATUS_OPTIONS = ['All Status', 'Active', 'Suspended', 'Expired'];
-
-const DESIGNATIONS_DATA = [
-  { id: '1', name: 'President', status: 'Active' },
-  { id: '2', name: 'Vice President', status: 'Active' },
-  { id: '3', name: 'General Secretary', status: 'Active' },
-  { id: '4', name: 'Joint Secretary', status: 'Active' },
-  { id: '5', name: 'Sec. Organization', status: 'Active' },
-  { id: '6', name: 'Sec. Media / Publicity', status: 'Active' },
-  { id: '7', name: 'Sec. Legal Cell', status: 'Active' },
-  { id: '8', name: 'Sec. Digital Media', status: 'Active' },
-  { id: '9', name: 'Sec. Counselling and Guidance', status: 'Active' },
-  { id: '10', name: 'Sec. Scholarship', status: 'Active' },
-];
+import { getDesignations, deleteDesignation } from '../../../api/masters';
 
 const DesignationMasterScreen = ({ navigation }) => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  // Applied Filters
-  const [applied, setApplied] = useState({
-    search: '',
-    status: 'Active',
-  });
-
-  // Draft Filters in Modal
-  const [draftStatus, setDraftStatus] = useState('Active');
-
-  const openFilter = () => {
-    setDraftStatus(applied.status);
-    setFilterOpen(true);
-  };
-
-  const applyFilter = () => {
-    setApplied(prev => ({
-      ...prev,
-      status: draftStatus,
-    }));
-    setFilterOpen(false);
-  };
-
-  const handleReset = () => {
-    setDraftStatus('Active');
-    setSearch('');
-    setApplied({
-      search: '',
-      status: 'Active',
-    });
-  };
-
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return DESIGNATIONS_DATA.filter(item => {
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
-
-      if (q && !item.name.toLowerCase().includes(q)) {
-        return false;
+  // Load designations
+  const loadDesignations = async (pageNum = 1, searchTerm = '') => {
+    try {
+      setLoading(true);
+      const result = await getDesignations(pageNum, 50, searchTerm);
+      
+      if (result?.data) {
+        setData(result.data);
+        setTotal(result.total || 0);
+        setPage(pageNum);
       }
-      return true;
-    });
-  }, [applied]);
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to load designations');
+      console.error('Load error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load on mount
+  useEffect(() => {
+    loadDesignations(1, '');
+  }, []);
+
+  // Handle search
+  const handleSearch = (text) => {
+    setSearch(text);
+    if (text.length > 0) {
+      loadDesignations(1, text);
+    } else {
+      loadDesignations(1, '');
+    }
+  };
+
+  // Handle delete
+  const handleDelete = (item) => {
+    Alert.alert(
+      'Delete',
+      `Delete "${item.name}"?`,
+      [
+        { text: 'Cancel' },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            try {
+              const result = await deleteDesignation(item._id);
+              if (result?.success || result?.statusCode === 200) {
+                Alert.alert('Success', 'Deleted successfully');
+                loadDesignations(1, search);
+              } else {
+                Alert.alert('Error', result?.message || 'Delete failed');
+              }
+            } catch (error) {
+              Alert.alert('Error', error.message);
+            }
+          },
+          style: 'destructive',
+        },
+      ]
+    );
+  };
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
-      <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>#{index + 1}</Text>
-        <Badge text={item.status} />
+      <View style={styles.cardHeader}>
+        <View style={styles.cardInfo}>
+          <Text style={styles.srNo}>#{(page - 1) * 50 + index + 1}</Text>
+          <Text style={styles.nameText}>{item.name}</Text>
+        </View>
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate('AddDesignationScreen', { designationData: item })
+            }
+            style={styles.actionBtn}
+          >
+            <Icon name="pencil" size={18} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDelete(item)}
+            style={[styles.actionBtn, styles.deleteBtnStyle]}
+          >
+            <Icon name="trash-can-outline" size={18} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.divider} />
 
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Designation Name</Text>
-          <Text style={styles.valTextBold}>{item.name}</Text>
+      <View style={styles.statusRow}>
+        <Text style={styles.label}>Status</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor: item.isActive ? '#D1FAE5' : '#FEE2E2',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              { color: item.isActive ? '#065F46' : '#991B1B' },
+            ]}
+          >
+            {item.isActive ? 'Active' : 'Inactive'}
+          </Text>
         </View>
       </View>
-
-      <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() =>
-          Alert.alert('Action', `Manage designation: ${item.name}`)
-        }
-      >
-        <Icon
-          name="pencil-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>Edit / Manage Designation</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -129,116 +144,59 @@ const DesignationMasterScreen = ({ navigation }) => {
       <View style={styles.container}>
         <BackHeader
           navigation={navigation}
-          title="Designation Master"
-          onBack={() => navigation && navigation.goBack()}
+          title="Designations"
+          onBack={() => navigation.goBack()}
         />
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search designation..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
-                      <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name="format-list-bulleted" size={40} color="#9CA3AF" />
-                  <Text style={styles.emptyTitle}>No designations found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
-
-            {/* Bottom Button Bar for Adding New Designation */}
-            <View style={styles.bottomBar}>
+            {/* Search & Add Button */}
+            <View style={styles.headerRow}>
+              <View style={styles.searchFlex}>
+                <SearchField
+                  placeholder="Search designation..."
+                  value={search}
+                  onChangeText={handleSearch}
+                />
+              </View>
               <GreenButton
-                title="+ Add Designation"
-                icon="plus"
+                title="+ Add"
                 onPress={() => navigation.navigate('AddDesignationScreen')}
-                style={styles.addButtonBar}
+                style={styles.addBtn}
               />
             </View>
+
+            {/* List */}
+            {loading && data.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <FlatList
+                data={data}
+                keyExtractor={(item) => item._id}
+                renderItem={renderItem}
+                onEndReachedThreshold={0.2}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={loading}
+                    onRefresh={() => loadDesignations(1, search)}
+                  />
+                }
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Icon name="briefcase-outline" size={40} color="#9CA3AF" />
+                    <Text style={styles.emptyTitle}>No designations found</Text>
+                  </View>
+                }
+                ListFooterComponent={
+                  loading && <ActivityIndicator size="small" color={colors.primary} />
+                }
+              />
+            )}
           </Body>
         </View>
-
-        {/* Filter Modal */}
-        <Modal
-          visible={filterOpen}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setFilterOpen(false)}
-        >
-          <TouchableOpacity
-            style={styles.overlay}
-            activeOpacity={1}
-            onPress={() => setFilterOpen(false)}
-          >
-            <View
-              style={styles.filterSheet}
-              onStartShouldSetResponder={() => true}
-            >
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.filterTitle}>Filter Designations</Text>
-                <TouchableOpacity onPress={() => setFilterOpen(false)}>
-                  <Icon name="close" size={22} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <Label text="Status" />
-              <Dropdown
-                value={draftStatus}
-                options={STATUS_OPTIONS}
-                onSelect={setDraftStatus}
-                style={styles.modalGap}
-              />
-
-              <View style={styles.actionRow}>
-                <GreenButton
-                  title="Apply"
-                  onPress={applyFilter}
-                  style={styles.applyBtn}
-                />
-                <GrayButton
-                  title="Reset"
-                  onPress={handleReset}
-                  style={styles.resetBtn}
-                />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Modal>
       </View>
     </AppLayout>
   );
@@ -251,215 +209,108 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    marginTop: 0,
     backgroundColor: colors.white,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    overflow: 'hidden',
   },
-
-  topHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  screenDesc: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.regular,
-    color: colors.textSecondary,
+  centerContainer: {
     flex: 1,
-  },
-  topActionBtns: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
   },
-  exportBtn: {
+  headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  exportText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: '#DC2626',
-    marginLeft: 3,
-  },
-  orderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  orderText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
-    marginLeft: 3,
-  },
-
-  searchFilterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    marginTop: 25,
+    gap: 8,
+    paddingHorizontal: wp('4%'),
+    paddingVertical: 12,
+    alignItems: 'flex-end',
   },
   searchFlex: {
     flex: 1,
-    marginRight: 8,
   },
-  filterButton: {
-    width: 48,
+  addBtn: {
     height: 48,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 2,
+    paddingHorizontal: 16,
   },
-
   listContent: {
     paddingHorizontal: wp('4%'),
     paddingBottom: 20,
-    paddingTop: 8,
   },
   card: {
-    backgroundColor: colors.cardColorLight,
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: colors.neutral.border,
-    borderRadius: 12,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
     padding: 12,
     marginBottom: 12,
   },
-  cardTopRow: {
+  cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  cardInfo: {
+    flex: 1,
   },
   srNo: {
     fontSize: FontSize.xs,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.neutral.border,
-    marginBottom: 8,
-  },
-  infoGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  infoCol: {
-    flex: 1,
-  },
-  labelKey: {
-    fontSize: 10,
-    fontFamily: FontFamily.medium,
-    color: colors.textSecondary,
-  },
-  valTextBold: {
+  nameText: {
     fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
+    fontFamily: FontFamily.semiBold,
     color: colors.TitleColor,
+    marginTop: 4,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 6,
     justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: 8,
-    paddingVertical: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  actionBtnText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
-  },
-
-  bottomBar: {
-    paddingHorizontal: wp('4%'),
-    paddingVertical: 12,
+    alignItems: 'center',
     backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral.border,
   },
-  addButtonBar: {
-    height: 48,
-    width: '100%',
+  deleteBtnStyle: {
+    backgroundColor: '#FEE2E2',
   },
-
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: FontSize.xs,
+    fontFamily: FontFamily.medium,
+    color: '#6B7280',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: FontSize.xs,
+    fontFamily: FontFamily.semiBold,
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
   },
   emptyTitle: {
-    fontSize: FontSize.lg,
-    fontFamily: FontFamily.bold,
-    color: '#1F2937',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  emptySubtitle: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: '#6B7280',
-    textAlign: 'center',
-  },
-
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  filterSheet: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    padding: 20,
-    paddingBottom: 30,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  filterTitle: {
-    fontSize: FontSize.lg,
-    fontFamily: FontFamily.bold,
-    color: colors.TitleColor,
-  },
-  modalGap: {
-    marginBottom: 12,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-  },
-  applyBtn: {
-    flex: 1,
-    marginRight: 8,
-    height: 48,
-  },
-  resetBtn: {
-    flex: 1,
-    height: 48,
+    marginTop: 8,
   },
 });
 

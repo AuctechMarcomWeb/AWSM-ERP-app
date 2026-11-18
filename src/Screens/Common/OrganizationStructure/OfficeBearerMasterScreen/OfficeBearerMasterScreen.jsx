@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
   Alert,
 } from 'react-native';
 
@@ -17,15 +19,15 @@ import AppLayout from '../../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../../components/BackHeader/BackHeader';
 import {
   Body,
+  GreenButton,
+  GrayButton,
   Label,
   SearchField,
   Dropdown,
-  GreenButton,
-  GrayButton,
-  Badge,
-  shared,
 } from '../../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+
+import { useOfficeBearers } from '../../../../hooks/useOrganization';
 
 const DESIGNATIONS = [
   'All Designations',
@@ -45,258 +47,249 @@ const DESIGNATIONS = [
   'Asst. Secretary',
 ];
 
-const TENURES = ['All Appointed Tenure', '2025-2026', '2024-2025'];
-const STATUSES = ['Active', 'Suspended', 'Expired'];
-
-const OFFICE_BEARERS_DATA = [
-  {
-    id: '1',
-    name: 'Mr. Ehsaan Imam Abidi',
-    designation: 'President',
-    city: 'Lucknow',
-    mobile: '9451904612',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    name: 'Mr. Syed Saghir abhid Rizvi (Advocate)',
-    designation: 'Vice President',
-    city: 'Barabanki',
-    mobile: '9899029697',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    name: 'Mr. Syed Mustafa Bilgrami',
-    designation: 'General Secretary',
-    city: 'Aligarh',
-    mobile: '7417775521',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    name: 'Mr. Mirza Ali Abbas',
-    designation: 'Joint Secretary',
-    city: 'Gorakhpur',
-    mobile: '9413275801',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '5',
-    name: 'Mr. Zamanat Ali',
-    designation: 'Sec. Organization',
-    city: 'Lucknow',
-    mobile: '9839024033',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '6',
-    name: 'Mr. Zamanat Ali',
-    designation: 'Sec. Media / Publicity',
-    city: 'Lucknow',
-    mobile: '9839024033',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '7',
-    name: 'Mr. Syed Mohd. Iqbal Hasan (Advocate)',
-    designation: 'Sec. Legal Cell',
-    city: 'Allahabad',
-    mobile: '9415615440',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '8',
-    name: 'Mr. Syed Raza Haidar Abidi',
-    designation: 'Sec. Digital Media',
-    city: 'Noida',
-    mobile: '9810085695',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '9',
-    name: 'Mr. Mohammad Ali Shamsi',
-    designation: 'Sec. Counselling and Guidance',
-    city: 'Azamgarh',
-    mobile: '6392771131',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '10',
-    name: 'Er. Suhail Murtaza',
-    designation: 'Sec. Scholarship',
-    city: 'Amroha',
-    mobile: '8279829851',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '11',
-    name: 'Er. Suhail Murtaza',
-    designation: 'Editor Wazifa Monthly',
-    city: 'Amroha',
-    mobile: '8279829851',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '12',
-    name: 'Er. Siraj Nayyar',
-    designation: 'Internal Auditor',
-    city: 'Bahraech',
-    mobile: '9415657995',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '13',
-    name: 'Mr. Mohd Ahmad Rizvi(Gulerz)',
-    designation: 'Asst Secretary',
-    city: 'Bhopal',
-    mobile: '8349700786',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-  {
-    id: '14',
-    name: 'Mr. Ashab Rizvi',
-    designation: 'Asst. Secretary',
-    city: 'Lucknow',
-    mobile: '9559388786',
-    tenure: '2025-2026',
-    status: 'Active',
-  },
-];
+const TENURES = ['All Appointed Tenure', '2025-2026', '2024-2025', '2023-2024'];
+const STATUSES = ['All Status', 'Active', 'Suspended', 'Expired'];
+const SORT_OPTIONS = ['Recent', 'Oldest', 'Name (A-Z)'];
 
 const OfficeBearerMasterScreen = ({ navigation }) => {
+  const { bearers, loading, page, total, loadBearers, deleteBearer } =
+    useOfficeBearers();
+
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const searchTimerRef = useRef(null);
 
-  // Applied Filters
+  // Filter states
   const [applied, setApplied] = useState({
     search: '',
     designation: 'All Designations',
     tenure: 'All Appointed Tenure',
-    status: 'Active',
+    status: 'All Status',
+    sortBy: 'Recent',
   });
 
-  // Draft Filters in Modal
+  const [draftSearch, setDraftSearch] = useState('');
   const [draftDesignation, setDraftDesignation] = useState('All Designations');
   const [draftTenure, setDraftTenure] = useState('All Appointed Tenure');
-  const [draftStatus, setDraftStatus] = useState('Active');
+  const [draftStatus, setDraftStatus] = useState('All Status');
+  const [draftSort, setDraftSort] = useState('Recent');
+
+  // Load initial data
+  useEffect(() => {
+    loadBearers(1, 50, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check if there's more data to load
+  useEffect(() => {
+    if (bearers.length > 0 && bearers.length < total) {
+      setHasMore(true);
+    } else if (bearers.length === 0 || bearers.length >= total) {
+      setHasMore(false);
+    }
+  }, [bearers, total]);
+
+  // Load when filters change
+  useEffect(() => {
+    setLoadingMore(false);
+    setHasMore(true);
+
+    loadBearers(1, 50, applied.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied]);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && !loading && !loadingMore && bearers.length > 0) {
+      setLoadingMore(true);
+      loadBearers(page + 1, 50, applied.search).finally(() => {
+        setLoadingMore(false);
+      });
+    }
+  }, [
+    hasMore,
+    loading,
+    loadingMore,
+    bearers.length,
+    page,
+    applied,
+    loadBearers,
+  ]);
+
+  const handleRefresh = useCallback(() => {
+    setHasMore(true);
+    loadBearers(1, 50, applied.search);
+  }, [applied, loadBearers]);
+
+  const handleSearchDebounce = text => {
+    setSearch(text);
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    if (text.length > 0) {
+      searchTimerRef.current = setTimeout(() => {
+        setApplied(prev => ({ ...prev, search: text }));
+      }, 500);
+    } else {
+      setApplied(prev => ({ ...prev, search: '' }));
+    }
+  };
 
   const openFilter = () => {
+    setDraftSearch(applied.search);
     setDraftDesignation(applied.designation);
     setDraftTenure(applied.tenure);
     setDraftStatus(applied.status);
-    setFilterOpen(true);
+    setDraftSort(applied.sortBy);
+    setTimeout(() => {
+      setFilterOpen(true);
+    }, 100);
   };
 
   const applyFilter = () => {
-    setApplied(prev => ({
-      ...prev,
+    setApplied({
+      search: draftSearch,
       designation: draftDesignation,
       tenure: draftTenure,
       status: draftStatus,
-    }));
+      sortBy: draftSort,
+    });
     setFilterOpen(false);
   };
 
-  const handleReset = () => {
+  const resetFilter = () => {
+    setDraftSearch('');
     setDraftDesignation('All Designations');
     setDraftTenure('All Appointed Tenure');
-    setDraftStatus('Active');
+    setDraftStatus('All Status');
+    setDraftSort('Recent');
     setSearch('');
     setApplied({
       search: '',
       designation: 'All Designations',
       tenure: 'All Appointed Tenure',
-      status: 'Active',
+      status: 'All Status',
+      sortBy: 'Recent',
     });
   };
 
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return OFFICE_BEARERS_DATA.filter(item => {
-      if (
-        applied.designation !== 'All Designations' &&
-        item.designation !== applied.designation
-      )
-        return false;
-      if (
-        applied.tenure !== 'All Appointed Tenure' &&
-        item.tenure !== applied.tenure
-      )
-        return false;
-      if (item.status !== applied.status) return false;
+  const hasActiveFilters =
+    applied.search?.trim() ||
+    applied.designation !== 'All Designations' ||
+    applied.tenure !== 'All Appointed Tenure' ||
+    applied.status !== 'All Status' ||
+    applied.sortBy !== 'Recent';
 
-      if (
-        q &&
-        !item.name.toLowerCase().includes(q) &&
-        !item.city.toLowerCase().includes(q) &&
-        !item.mobile.toLowerCase().includes(q) &&
-        !item.designation.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
+  const handleDelete = bearer => {
+    Alert.alert(
+      'Delete Office Bearer',
+      `Are you sure you want to delete ${bearer.name}?`,
+      [
+        { text: 'Cancel', onPress: () => {} },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            const result = await deleteBearer(bearer._id);
+            if (result.success) {
+              Alert.alert('Success', 'Deleted successfully');
+              handleRefresh();
+            } else {
+              Alert.alert('Error', result.message || 'Failed to delete');
+            }
+          },
+          style: 'destructive',
+        },
+      ],
+    );
+  };
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
-      <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>{index + 1}</Text>
-        <Text style={styles.tenureText}>Tenure: {item.tenure}</Text>
-        <Badge text={item.status} />
+      <View style={styles.cardHeader}>
+        <View style={styles.cardInfo}>
+          <Text style={styles.srNo}>#{(page - 1) * 50 + index + 1}</Text>
+          <Text style={styles.nameText} numberOfLines={1}>
+            {item.name}
+          </Text>
+        </View>
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() =>
+              navigation.navigate('AddOfficeBearerScreen', {
+                bearer: item,
+              })
+            }
+          >
+            <Icon name="pencil" size={18} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.deleteBtnStyle]}
+            onPress={() => handleDelete(item)}
+          >
+            <Icon name="trash-can-outline" size={18} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.divider} />
 
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Name</Text>
-          <Text style={styles.valTextBold}>{item.name}</Text>
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Designation</Text>
+          <Text style={styles.value} numberOfLines={1}>
+            {item.designation || '-'}
+          </Text>
         </View>
-        <View style={styles.infoColRight}>
-          <Text style={styles.labelKey}>Designation</Text>
-          <Text style={styles.valTextPrimary}>{item.designation}</Text>
-        </View>
-      </View>
-
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>City</Text>
-          <Text style={styles.valText}>{item.city}</Text>
-        </View>
-        <View style={styles.infoColRight}>
-          <Text style={styles.labelKey}>Mobile No.</Text>
-          <Text style={styles.valText}>{item.mobile}</Text>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Tenure</Text>
+          <Text style={styles.value} numberOfLines={1}>
+            {item.tenure || '-'}
+          </Text>
         </View>
       </View>
 
-      {/* <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() => {}}
-      >
-        <Icon
-          name="eye-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>View Details / Action</Text>
-      </TouchableOpacity> */}
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Mobile</Text>
+          <Text style={styles.value} numberOfLines={1}>
+            {item.mobileNumber || item.mobile || '-'}
+          </Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Status</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor:
+                  item.status === 'Active' ? '#D1FAE5' : '#FEE2E2',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                { color: item.status === 'Active' ? '#065F46' : '#991B1B' },
+              ]}
+            >
+              {item.status || 'Inactive'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>City</Text>
+          <Text style={styles.value} numberOfLines={1}>
+            {item.city || '-'}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 
@@ -311,95 +304,93 @@ const OfficeBearerMasterScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* Top Header Row with Actions */}
-                  {/* <View style={styles.topHeaderRow}>
-                    <Text style={styles.screenDesc}>Manage Office Bearers</Text>
+            {loading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <>
+                <FlatList
+                  data={bearers}
+                  keyExtractor={(item, idx) => item._id || idx.toString()}
+                  renderItem={renderItem}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.listContent}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={loading}
+                      onRefresh={handleRefresh}
+                      colors={[colors.primary]}
+                      tintColor={colors.primary}
+                    />
+                  }
+                  onEndReached={handleLoadMore}
+                  onEndReachedThreshold={0.2}
+                  ListFooterComponent={
+                    loadingMore ? (
+                      <View style={styles.loadingMoreContainer}>
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
+                      </View>
+                    ) : null
+                  }
+                  ListHeaderComponent={
+                    <View>
+                      <View style={styles.searchFilterContainer}>
+                        <View style={styles.searchFlex}>
+                          <SearchField
+                            placeholder="Search bearer..."
+                            value={search}
+                            onChangeText={handleSearchDebounce}
+                          />
+                        </View>
 
-                    <View style={styles.topActionBtns}>
-                      <TouchableOpacity
-                        style={styles.exportBtn}
-                        activeOpacity={0.8}
-                        onPress={() =>
-                          Alert.alert(
-                            'Export',
-                            'Exporting office bearers list...',
-                          )
-                        }
-                      >
-                        <Icon name="file-pdf-box" size={16} color="#DC2626" />
-                        <Text style={styles.exportText}>Export</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.orderBtn}
-                        activeOpacity={0.8}
-                        onPress={() =>
-                          Alert.alert('Success', 'Order saved successfully!')
-                        }
-                      >
-                        <Icon name="sort" size={16} color={colors.primary} />
-                        <Text style={styles.orderText}>Save Order</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.filterButton}
+                          activeOpacity={0.8}
+                          onPress={openFilter}
+                        >
+                          <Icon
+                            name="filter-variant"
+                            size={22}
+                            color={colors.white}
+                          />
+                          {hasActiveFilters && (
+                            <View style={styles.filterBadgeDot} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View> */}
-
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search office bearer name, city..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
+                  }
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
                       <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
+                        name="account-tie-outline"
+                        size={40}
+                        color="#9CA3AF"
                       />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name="account-tie-outline" size={40} color="#9CA3AF" />
-                  <Text style={styles.emptyTitle}>No office bearers found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
+                      <Text style={styles.emptyTitle}>
+                        No office bearers found
+                      </Text>
+                      <Text style={styles.emptySubtitle}>
+                        Try adjusting your search or filters.
+                      </Text>
+                    </View>
+                  }
+                />
 
-            {/* Bottom Button Bar for Adding New Office Bearer */}
-            <View style={styles.bottomBar}>
-              <GreenButton
-                title="+ Add Office Bearer"
-                icon="account-plus-outline"
-              onPress={() =>
-                  navigation.navigate('AddOfficeBearerScreen')
-                }
-                style={styles.addButtonBar}
-              />
-            </View>
+                {/* Bottom Add Button */}
+                <View style={styles.bottomBar}>
+                  <GreenButton
+                    title="+ Add Office Bearer"
+                    onPress={() => navigation.navigate('AddOfficeBearerScreen')}
+                    style={styles.addBtn}
+                  />
+                </View>
+              </>
+            )}
           </Body>
         </View>
 
@@ -410,11 +401,12 @@ const OfficeBearerMasterScreen = ({ navigation }) => {
           animationType="slide"
           onRequestClose={() => setFilterOpen(false)}
         >
-          <TouchableOpacity
-            style={styles.overlay}
-            activeOpacity={1}
-            onPress={() => setFilterOpen(false)}
-          >
+          <View style={styles.overlay}>
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => setFilterOpen(false)}
+            />
             <View
               style={styles.filterSheet}
               onStartShouldSetResponder={() => true}
@@ -450,20 +442,30 @@ const OfficeBearerMasterScreen = ({ navigation }) => {
                 style={styles.modalGap}
               />
 
+              <Label text="Sort By" />
+              <Dropdown
+                value={draftSort}
+                options={SORT_OPTIONS}
+                onSelect={setDraftSort}
+                style={styles.modalGap}
+              />
+
               <View style={styles.actionRow}>
                 <GreenButton
                   title="Apply"
                   onPress={applyFilter}
                   style={styles.applyBtn}
                 />
-                <GrayButton
-                  title="Reset"
-                  onPress={handleReset}
-                  style={styles.resetBtn}
-                />
+                {hasActiveFilters && (
+                  <GrayButton
+                    title="Reset"
+                    onPress={resetFilter}
+                    style={styles.resetBtn}
+                  />
+                )}
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
       </View>
     </AppLayout>
@@ -477,75 +479,31 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    marginTop:0,
+    marginTop: 0,
     backgroundColor: colors.white,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: 'hidden',
   },
-
-  topHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  screenDesc: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.regular,
-    color: colors.textSecondary,
+  centerContainer: {
     flex: 1,
-     
-  },
-  topActionBtns: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-  },
-  exportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  exportText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: '#DC2626',
-    marginLeft: 3,
-  },
-  orderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  orderText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
-    marginLeft: 3,
+    paddingHorizontal: 20,
   },
 
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-        marginTop: 24,
-
-    
+    marginBottom: 14,
+    marginTop: 30,
   },
+
   searchFlex: {
     flex: 1,
     marginRight: 8,
   },
+
   filterButton: {
     width: 48,
     height: 48,
@@ -554,13 +512,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.white,
   },
 
   listContent: {
     paddingHorizontal: wp('4%'),
-    paddingBottom: 20,
+    paddingBottom: 100,
     paddingTop: 8,
   },
+
   card: {
     backgroundColor: colors.cardColorLight,
     borderWidth: 1,
@@ -569,87 +541,96 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  cardTopRow: {
+
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
+
+  cardInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
-  tenureText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.medium,
-    color: colors.textSecondary,
+
+  nameText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: colors.TitleColor,
+    marginTop: 2,
   },
+
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+
+  deleteBtnStyle: {
+    backgroundColor: '#FEE2E2',
+  },
+
   divider: {
     height: 1,
     backgroundColor: colors.neutral.border,
     marginBottom: 8,
   },
-  infoGrid: {
+
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  infoCol: {
+
+  infoItem: {
     flex: 1,
+    marginRight: 6,
   },
-  infoColRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  labelKey: {
-    fontSize: 10,
+
+  label: {
+    fontSize: 12,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
+    marginBottom: 2,
   },
-  valTextBold: {
+
+  value: {
     fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
-    color: colors.TitleColor,
-  },
-  valTextPrimary: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.semiBold,
-    color: colors.primary,
-  },
-  valText: {
-    fontSize: FontSize.xs,
     fontFamily: FontFamily.regular,
     color: colors.TitleColor,
   },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: 8,
-    paddingVertical: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  actionBtnText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
+
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
 
-  // Bottom Button Bar
-  bottomBar: {
-    paddingHorizontal: wp('4%'),
-    paddingVertical: 12,
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral.border,
+  statusText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
   },
-  addButtonBar: {
-    height: 48,
-    width: '100%',
+
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   emptyContainer: {
@@ -657,6 +638,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 40,
   },
+
   emptyTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
@@ -664,11 +646,24 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 4,
   },
+
   emptySubtitle: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: '#6B7280',
     textAlign: 'center',
+  },
+
+  bottomBar: {
+    paddingHorizontal: wp('4%'),
+    paddingVertical: 12,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral.border,
+  },
+
+  addBtn: {
+    height: 48,
   },
 
   // Filter Modal Styles
@@ -677,36 +672,44 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
+
   filterSheet: {
     backgroundColor: colors.white,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 20,
     paddingBottom: 30,
+    maxHeight: '85%',
   },
+
   modalHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
   },
+
   filterTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
     color: colors.TitleColor,
   },
+
   modalGap: {
     marginBottom: 12,
   },
+
   actionRow: {
     flexDirection: 'row',
     marginTop: 16,
   },
+
   applyBtn: {
     flex: 1,
     marginRight: 8,
     height: 48,
   },
+
   resetBtn: {
     flex: 1,
     height: 48,

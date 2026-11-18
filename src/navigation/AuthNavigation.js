@@ -57,6 +57,7 @@ import MembershipListScreen from '../Screens/Common/MembersList/MembersListScree
 import OfficeBearerMasterScreen from '../Screens/Common/OrganizationStructure/OfficeBearerMasterScreen/OfficeBearerMasterScreen';
 import AddOfficeBearerScreen from '../Screens/Common/OrganizationStructure/OfficeBearerMasterScreen/AddOfficeBearerScreen';
 import ExecutiveMembersScreen from '../Screens/Common/OrganizationStructure/ExecutiveMembersScreen/ExecutiveMembersScreen';
+import AddExecutiveMembersScreen from '../Screens/Common/OrganizationStructure/ExecutiveMembersScreen/AddExecutiveMembersScreen';
 import LocalSecretariesScreen from '../Screens/Common/OrganizationStructure/LocalSecretariesScreen/LocalSecretariesScreen';
 import AddLocalSecretaryScreen from '../Screens/Common/OrganizationStructure/LocalSecretariesScreen/AddLocalSecretaryScreen';
 import UserAccessManagementScreen from '../Screens/Common/UserAccessManagementScreen/UserAccessManagementScreen';
@@ -908,6 +909,10 @@ const AuthNavigation = () => {
       <Stack.Screen
         name="ExecutiveMembersScreen"
         component={ExecutiveMembersScreen}
+      />
+      <Stack.Screen
+        name="AddExecutiveMembersScreen"
+        component={AddExecutiveMembersScreen}
       />
       <Stack.Screen
         name="LocalSecretariesScreen"

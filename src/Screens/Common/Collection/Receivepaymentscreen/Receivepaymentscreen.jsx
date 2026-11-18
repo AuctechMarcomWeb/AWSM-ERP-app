@@ -21,7 +21,6 @@ import BackHeader from '../../../../components/BackHeader/BackHeader';
 import {
   Body,
   Label,
-  Section,
   TextField,
   Dropdown,
   DateField,
@@ -29,6 +28,7 @@ import {
   GrayButton,
   shared,
 } from '../../../../components/Formparts';
+import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
 import {
   getCollectors,
@@ -40,6 +40,13 @@ import {
   formatFundTypesForDisplay,
 } from '../../../../api/collection';
 
+const STEPS = [
+  { no: 1, title: 'Transaction' },
+  { no: 2, title: 'Amounts' },
+  { no: 3, title: 'Donor Info' },
+  { no: 4, title: 'Remarks' },
+];
+
 const newFund = () => ({
   id: String(Date.now() + Math.random()),
   type: '',
@@ -50,6 +57,7 @@ const newFund = () => ({
 const FieldLoader = ({ loading, height = 48, style, children }) => (
   <View style={style}>
     {children}
+
     {loading && (
       <View pointerEvents="none" style={[styles.fieldLoader, { height }]}>
         <ActivityIndicator size="small" color={colors.primary} />
@@ -59,6 +67,8 @@ const FieldLoader = ({ loading, height = 48, style, children }) => (
 );
 
 const ReceivePaymentScreen = ({ navigation }) => {
+  const [currentStep, setCurrentStep] = useState(1);
+
   // Form states
   const [date, setDate] = useState(new Date());
   const [regNo, setRegNo] = useState('');
@@ -82,12 +92,12 @@ const ReceivePaymentScreen = ({ navigation }) => {
 
   // API data states
   const [collectors, setCollectors] = useState([]);
-  const [collectorsList, setCollectorsList] = useState([]); // Full list with _id
+  const [collectorsList, setCollectorsList] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [fundTypes, setFundTypes] = useState([]);
-  const [fundTypesList, setFundTypesList] = useState([]); // Full list with _id
+  const [fundTypesList, setFundTypesList] = useState([]);
 
-  // Individual loading states for dropdowns only
+  // Individual loading states for dropdowns
   const [loadingStates, setLoadingStates] = useState({
     collectors: true,
     paymentModes: true,
@@ -109,14 +119,12 @@ const ReceivePaymentScreen = ({ navigation }) => {
 
   const loadFormData = async () => {
     try {
-      // Don't show full screen loader, only set individual dropdown loaders
       setLoadingStates({
         collectors: true,
         paymentModes: true,
         fundTypes: true,
       });
 
-      // Parallel load all APIs
       const [collectorsRes, modesRes, fundsRes] = await Promise.all([
         getCollectors(),
         getPaymentModes(),
@@ -124,41 +132,70 @@ const ReceivePaymentScreen = ({ navigation }) => {
       ]);
 
       if (collectorsRes.success && collectorsRes.collectors) {
+        console.log('✅ Collectors loaded:', collectorsRes.collectors.length);
         setCollectorsList(collectorsRes.collectors);
         const formatted = formatCollectorsForDisplay(collectorsRes.collectors);
-        setCollectors(formatted.map(c => c.displayName));
-        console.log('✅ Collectors loaded:', collectorsRes.collectors.length);
+        console.log('📋 Formatted collectors:', formatted);
+        // Remove duplicates by keeping only first occurrence
+        const seenNames = new Set();
+        const uniqueCollectors = formatted.filter(c => {
+          if (seenNames.has(c.displayName)) {
+            return false;
+          }
+          seenNames.add(c.displayName);
+          return true;
+        });
+        const collectorDisplayNames = uniqueCollectors.map(c => c.displayName);
+        console.log(
+          '🎯 Unique collectors for dropdown:',
+          collectorDisplayNames,
+        );
+        setCollectors(collectorDisplayNames);
+      } else {
+        console.error('❌ Collectors API failed:', collectorsRes);
       }
       setLoadingStates(p => ({ ...p, collectors: false }));
 
       if (modesRes.success && modesRes.paymentModes) {
-        setPaymentMethods(modesRes.paymentModes);
         console.log('✅ Payment modes loaded:', modesRes.paymentModes.length);
+        setPaymentMethods(modesRes.paymentModes);
+      } else {
+        console.error('❌ Payment modes API failed:', modesRes);
       }
       setLoadingStates(p => ({ ...p, paymentModes: false }));
 
       if (fundsRes.success && fundsRes.fundTypes) {
+        console.log('✅ Fund types loaded:', fundsRes.fundTypes.length);
         setFundTypesList(fundsRes.fundTypes);
         const formatted = formatFundTypesForDisplay(fundsRes.fundTypes);
-        setFundTypes(formatted.map(f => f.displayName));
-        console.log('✅ Fund types loaded:', fundsRes.fundTypes.length);
+        console.log('📋 Formatted fund types:', formatted);
+        // Remove duplicates by keeping only first occurrence
+        const seenNames = new Set();
+        const uniqueFunds = formatted.filter(f => {
+          if (seenNames.has(f.displayName)) {
+            return false;
+          }
+          seenNames.add(f.displayName);
+          return true;
+        });
+        const fundDisplayNames = uniqueFunds.map(f => f.displayName);
+        console.log('🎯 Unique fund types for dropdown:', fundDisplayNames);
+        setFundTypes(fundDisplayNames);
+      } else {
+        console.error('❌ Fund types API failed:', fundsRes);
       }
       setLoadingStates(p => ({ ...p, fundTypes: false }));
     } catch (error) {
       console.error('❌ Error loading form data:', error);
       Alert.alert('Error', 'Failed to load form data');
-      // Set all loading states to false on error
       setLoadingStates({
         collectors: false,
         paymentModes: false,
         fundTypes: false,
       });
-    } finally {
-      // Screen is ready immediately, no need for full screen loader
     }
   };
 
-  // Called by SelectMember screen when a member is picked
   const handleMemberSelected = selectedMember => {
     if (!selectedMember) return;
     const code = selectedMember.memberId || selectedMember.uniqueId || 'N/A';
@@ -201,31 +238,53 @@ const ReceivePaymentScreen = ({ navigation }) => {
     setCity('');
     setCountry('India');
     setRemarks('');
+    setCurrentStep(1);
+  };
+
+  const handleNext = () => {
+    if (currentStep === 1) {
+      if (!date) return Alert.alert('Required', 'Please select date');
+      if (!collectedBy)
+        return Alert.alert('Required', 'Please select collector');
+      if (!method)
+        return Alert.alert('Required', 'Please select payment method');
+    } else if (currentStep === 2) {
+      const validFunds = funds.filter(f => f.type && Number(f.amount) > 0);
+      if (validFunds.length === 0) {
+        return Alert.alert(
+          'Required',
+          'Please add at least one fund with amount',
+        );
+      }
+    } else if (currentStep === 3) {
+      if (!anonymous && !member) {
+        return Alert.alert('Required', 'Please select a member');
+      }
+    }
+
+    if (currentStep < 4) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      handleSave();
+    }
+  };
+
+  const handleBackStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(prev => prev - 1);
+    } else {
+      navigation && navigation.goBack();
+    }
   };
 
   const handleSave = async () => {
-    if (!date) return Alert.alert('Required', 'Please select date');
-    if (!collectedBy) return Alert.alert('Required', 'Please select collector');
-    if (!method) return Alert.alert('Required', 'Please select payment method');
-
-    const validFunds = funds.filter(f => f.type && Number(f.amount) > 0);
-    if (validFunds.length === 0) {
-      return Alert.alert(
-        'Required',
-        'Please add at least one fund with amount',
-      );
-    }
-
-    if (!anonymous && !member)
-      return Alert.alert('Required', 'Please select a member');
-
     setSaving(true);
-
     try {
-      // Format date as YYYY-MM-DD
       const dateString = `${date.getFullYear()}-${String(
         date.getMonth() + 1,
       ).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+      const validFunds = funds.filter(f => f.type && Number(f.amount) > 0);
 
       const payload = preparePaymentPayload({
         date: dateString,
@@ -249,13 +308,9 @@ const ReceivePaymentScreen = ({ navigation }) => {
         remarks,
       });
 
-      console.log('💾 Saving payment...');
-      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
-
       const result = await createPaymentEntry(payload);
 
       if (result.success) {
-        console.log('✅ Payment saved successfully!');
         Alert.alert('Success', 'Payment recorded successfully!', [
           {
             text: 'OK',
@@ -294,272 +349,337 @@ const ReceivePaymentScreen = ({ navigation }) => {
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={shared.scroll}
+                contentContainerStyle={styles.scrollContent}
               >
-                {/* Transaction Details */}
-                <Section title="Transaction Details">
-                  <View style={shared.row}>
-                    <View style={shared.colL}>
-                      <Label text="Date" required />
-                      <DateField value={date} onChange={setDate} />
-                    </View>
-
-                    <View style={shared.col}>
-                      <Label text="Reg No. (Wasool No)" />
-                      <TextField
-                        placeholder="Enter Reg / Wasool No"
-                        value={regNo}
-                        onChangeText={setRegNo}
-                      />
-                    </View>
-                  </View>
-
-                  <Label text="Receipt No." />
-                  <TextField
-                    placeholder="Enter Receipt No"
-                    value={receiptNo}
-                    onChangeText={setReceiptNo}
-                    style={styles.gap}
-                  />
-
-                  <Label text="Tally No." />
-                  <TextField
-                    placeholder="Enter Tally No"
-                    value={tallyNo}
-                    onChangeText={setTallyNo}
-                    style={styles.gap}
-                  />
-
-                  <Label text="Collected By" required />
-                  <FieldLoader
-                    loading={loadingStates.collectors}
-                    style={styles.gap}
-                  >
-                    <Dropdown
-                      value={collectedBy}
-                      placeholder="Search collector by name..."
-                      options={collectors}
-                      onSelect={displayName => {
-                        // Find the collector from full list by display name
-                        const formatted =
-                          formatCollectorsForDisplay(collectorsList);
-                        const collector = formatted.find(
-                          c => c.displayName === displayName,
-                        );
-                        setCollectedBy(displayName);
-                        setCollectedByMemberId(collector?._id || '');
-                        console.log(
-                          '✅ Selected collector:',
-                          displayName,
-                          collector?._id,
-                        );
-                      }}
-                      searchable
-                    />
-                  </FieldLoader>
-
-                  <Label text="Payment Method" required />
-                  <FieldLoader loading={loadingStates.paymentModes}>
-                    <Dropdown
-                      value={method}
-                      placeholder="Select Payment Method"
-                      options={paymentMethods.map(m => m.name)}
-                      onSelect={setMethod}
-                    />
-                  </FieldLoader>
-                </Section>
-
-                {/* Amount Details */}
-                <Section title="Amount Details">
-                  <View style={styles.tableHead}>
-                    <Text style={[styles.headText, styles.hashCol]}>#</Text>
-                    <Text style={[styles.headText, styles.typeCol]}>
-                      Fund Type
-                    </Text>
-                    <Text style={[styles.headText, styles.amountCol]}>
-                      Amount (Rs.)
-                    </Text>
-                    <View style={styles.deleteCol} />
-                  </View>
-
-                  {funds.map((f, index) => (
-                    <View key={f.id} style={styles.fundRow}>
-                      <Text style={[styles.hashText, styles.hashCol]}>
-                        {index + 1}
-                      </Text>
-
-                      <View style={styles.typeCol}>
-                        <FieldLoader
-                          loading={loadingStates.fundTypes}
-                          height={42}
+                {/* Multi-step Header Indicator */}
+                <View style={styles.stepperRow}>
+                  {STEPS.map(s => {
+                    const isActive = currentStep === s.no;
+                    const isPassed = currentStep > s.no;
+                    return (
+                      <View key={s.no} style={styles.stepItem}>
+                        <View
+                          style={[
+                            styles.stepCircle,
+                            isActive && styles.stepCircleActive,
+                            isPassed && styles.stepCirclePassed,
+                          ]}
                         >
-                          <Dropdown
-                            value={f.type}
-                            placeholder="Search fund type..."
-                            options={fundTypes}
-                            onSelect={displayName => {
-                              // Find fund type _id
-                              const formatted =
-                                formatFundTypesForDisplay(fundTypesList);
-                              const fund = formatted.find(
-                                ft => ft.displayName === displayName,
-                              );
+                          {isPassed ? (
+                            <Icon name="check" size={14} color={colors.white} />
+                          ) : (
+                            <Text
+                              style={[
+                                styles.stepNoText,
+                                (isActive || isPassed) &&
+                                  styles.stepNoTextActive,
+                              ]}
+                            >
+                              {s.no}
+                            </Text>
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.stepTitleText,
+                            isActive && styles.stepTitleTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {s.title}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* ================= STEP 1: TRANSACTION DETAILS ================= */}
+                {currentStep === 1 && (
+                  <View>
+                    <Text style={styles.sectionHeading}>
+                      Transaction Details
+                    </Text>
+
+                    <View style={shared.row}>
+                      <View style={shared.colL}>
+                        <Label text="Date" required />
+                        <DateField value={date} onChange={setDate} />
+                      </View>
+
+                      <View style={shared.col}>
+                        <Label text="Reg No. (Wasool No)" />
+                        <TextField
+                          placeholder="Enter Reg / Wasool No"
+                          value={regNo}
+                          onChangeText={setRegNo}
+                        />
+                      </View>
+                    </View>
+
+                    <Label text="Receipt No." />
+                    <TextField
+                      placeholder="Enter Receipt No"
+                      value={receiptNo}
+                      onChangeText={setReceiptNo}
+                      style={styles.gap}
+                    />
+
+                    <Label text="Tally No." />
+                    <TextField
+                      placeholder="Enter Tally No"
+                      value={tallyNo}
+                      onChangeText={setTallyNo}
+                      style={styles.gap}
+                    />
+
+                    <Label text="Collected By" required />
+                    <FieldLoader
+                      loading={loadingStates.collectors}
+                      style={styles.gap}
+                    >
+                      <Dropdown
+                        value={collectedBy}
+                        placeholder="Search collector by name..."
+                        options={collectors}
+                        onSelect={displayName => {
+                          console.log(
+                            '🔍 Selected collector:',
+                            displayName,
+                            'Available:',
+                            collectors,
+                          );
+                          const formatted =
+                            formatCollectorsForDisplay(collectorsList);
+                          // Remove duplicates when searching
+                          const seenNames = new Set();
+                          const uniqueFormatted = formatted.filter(c => {
+                            if (seenNames.has(c.displayName)) {
+                              return false;
+                            }
+                            seenNames.add(c.displayName);
+                            return true;
+                          });
+                          const collector = uniqueFormatted.find(
+                            c => c.displayName === displayName,
+                          );
+                          setCollectedBy(displayName);
+                          setCollectedByMemberId(collector?._id || '');
+                        }}
+                        searchable
+                      />
+                    </FieldLoader>
+
+                    <Label text="Payment Method" required />
+                    <FieldLoader loading={loadingStates.paymentModes}>
+                      <Dropdown
+                        value={method}
+                        placeholder="Select Payment Method"
+                        options={paymentMethods.map(m => m.name)}
+                        onSelect={setMethod}
+                      />
+                    </FieldLoader>
+                  </View>
+                )}
+
+                {/* ================= STEP 2: AMOUNT DETAILS ================= */}
+                {currentStep === 2 && (
+                  <View>
+                    <Text style={styles.sectionHeading}>Amount Details</Text>
+
+                    <View style={styles.tableHead}>
+                      <Text style={[styles.headText, styles.hashCol]}>#</Text>
+                      <Text style={[styles.headText, styles.typeCol]}>
+                        Fund Type
+                      </Text>
+                      <Text style={[styles.headText, styles.amountCol]}>
+                        Amount (Rs.)
+                      </Text>
+                      <View style={styles.deleteCol} />
+                    </View>
+
+                    {funds.map((f, index) => (
+                      <View key={f.id} style={styles.fundRow}>
+                        <Text style={[styles.hashText, styles.hashCol]}>
+                          {index + 1}
+                        </Text>
+
+                        <View style={styles.typeCol}>
+                          <FieldLoader
+                            loading={loadingStates.fundTypes}
+                            height={42}
+                          >
+                            <Dropdown
+                              value={f.type}
+                              placeholder="Search fund type..."
+                              options={fundTypes}
+                              onSelect={displayName => {
+                                const formatted =
+                                  formatFundTypesForDisplay(fundTypesList);
+                                // Remove duplicates when searching
+                                const seenNames = new Set();
+                                const uniqueFormatted = formatted.filter(ft => {
+                                  if (seenNames.has(ft.displayName)) {
+                                    return false;
+                                  }
+                                  seenNames.add(ft.displayName);
+                                  return true;
+                                });
+                                const fund = uniqueFormatted.find(
+                                  ft => ft.displayName === displayName,
+                                );
+                                updateFund(f.id, {
+                                  type: fund?._id || displayName,
+                                  typeName: displayName,
+                                });
+                              }}
+                              searchable
+                              style={styles.smallField}
+                            />
+                          </FieldLoader>
+                        </View>
+
+                        <View style={styles.amountCol}>
+                          <TextField
+                            placeholder="Enter Amount"
+                            value={f.amount}
+                            onChangeText={v =>
                               updateFund(f.id, {
-                                type: fund?._id || displayName,
-                                typeName: displayName,
-                              });
-                            }}
-                            searchable
+                                amount: v.replace(/[^0-9.]/g, ''),
+                              })
+                            }
+                            keyboardType="numeric"
                             style={styles.smallField}
                           />
-                        </FieldLoader>
-                      </View>
+                        </View>
 
-                      <View style={styles.amountCol}>
-                        <TextField
-                          placeholder="Enter Amount"
-                          value={f.amount}
-                          onChangeText={v =>
-                            updateFund(f.id, {
-                              amount: v.replace(/[^0-9.]/g, ''),
-                            })
-                          }
-                          keyboardType="numeric"
-                          style={styles.smallField}
-                        />
+                        <TouchableOpacity
+                          style={styles.deleteCol}
+                          onPress={() => removeFund(f.id)}
+                          disabled={funds.length === 1}
+                        >
+                          <Icon
+                            name="trash-can-outline"
+                            size={22}
+                            color={funds.length === 1 ? '#F3B1B1' : '#E53935'}
+                          />
+                        </TouchableOpacity>
                       </View>
+                    ))}
 
+                    <GreenButton
+                      title="Add Fund"
+                      icon="plus"
+                      onPress={() => setFunds(prev => [...prev, newFund()])}
+                      style={styles.addFund}
+                    />
+                  </View>
+                )}
+
+                {/* ================= STEP 3: DONOR DETAILS ================= */}
+                {currentStep === 3 && (
+                  <View>
+                    <View style={styles.donorHeaderContainer}>
+                      <Text style={styles.sectionHeading}>Donor Details</Text>
                       <TouchableOpacity
-                        style={styles.deleteCol}
-                        onPress={() => removeFund(f.id)}
-                        disabled={funds.length === 1}
+                        style={styles.anonRow}
+                        activeOpacity={0.8}
+                        onPress={() => setAnonymous(!anonymous)}
                       >
-                        <Icon
-                          name="trash-can-outline"
-                          size={22}
-                          color={funds.length === 1 ? '#F3B1B1' : '#E53935'}
-                        />
+                        <View style={styles.anonBox}>
+                          {anonymous && (
+                            <Icon name="check" size={14} color="#2E7D32" />
+                          )}
+                        </View>
+                        <Text style={styles.anonText}>Anonymous</Text>
                       </TouchableOpacity>
                     </View>
-                  ))}
 
-                  <GreenButton
-                    title="Add Fund"
-                    icon="plus"
-                    onPress={() => setFunds(prev => [...prev, newFund()])}
-                    style={styles.addFund}
-                  />
-                </Section>
-
-                {/* Donor Details */}
-                <Section
-                  title="Donor Details"
-                  right={
-                    <TouchableOpacity
-                      style={styles.anonRow}
-                      activeOpacity={0.8}
-                      onPress={() => setAnonymous(!anonymous)}
-                    >
-                      <View style={styles.anonBox}>
-                        {anonymous && (
-                          <Icon name="check" size={14} color="#2E7D32" />
-                        )}
-                      </View>
-                      <Text style={styles.anonText}>Anonymous</Text>
-                    </TouchableOpacity>
-                  }
-                >
-                  <View style={styles.memberHead}>
                     <Label text="Member" style={styles.noMargin} />
 
-                    {/* <TouchableOpacity
-                      style={styles.addMember}
-                      onPress={() =>
-                        navigation && navigation.navigate('AddMember')
-                      }
+                    <View
+                      style={[anonymous && styles.dim, styles.gap]}
+                      pointerEvents={anonymous ? 'none' : 'auto'}
                     >
-                      <Icon
-                        name="account-plus-outline"
-                        size={18}
-                        color="#2E8B3E"
-                      />
-                      <Text style={styles.addMemberText}>Add Member</Text>
-                    </TouchableOpacity> */}
-                  </View>
-
-                  <View
-                    style={anonymous && styles.dim}
-                    pointerEvents={anonymous ? 'none' : 'auto'}
-                  >
-                    <TouchableOpacity
-                      style={[styles.memberField, styles.gap]}
-                      activeOpacity={0.8}
-                      onPress={openSelectMember}
-                    >
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.memberFieldText,
-                          !member && styles.memberFieldPlaceholder,
-                        ]}
+                      <TouchableOpacity
+                        style={styles.memberField}
+                        activeOpacity={0.8}
+                        onPress={openSelectMember}
                       >
-                        {member || 'Search by Member ID or Name...'}
-                      </Text>
-                      <Icon name="chevron-down" size={22} color="#6B7280" />
-                    </TouchableOpacity>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.memberFieldText,
+                            !member && styles.memberFieldPlaceholder,
+                          ]}
+                        >
+                          {member || 'Search by Member ID or Name...'}
+                        </Text>
+                        <Icon name="chevron-down" size={22} color="#6B7280" />
+                      </TouchableOpacity>
+                    </View>
+
+                    <Label text="Address" />
+                    <TextField
+                      placeholder="Enter Address"
+                      value={address}
+                      onChangeText={setAddress}
+                      style={styles.gap}
+                    />
+
+                    <Label text="City" />
+                    <TextField
+                      placeholder="Enter City"
+                      value={city}
+                      onChangeText={setCity}
+                      style={styles.gap}
+                    />
+
+                    <Label text="Country" />
+                    <Dropdown
+                      value={country}
+                      options={['India', 'UAE', 'Other']}
+                      onSelect={setCountry}
+                    />
                   </View>
+                )}
 
-                  <Label text="Address" />
-                  <TextField
-                    placeholder="Enter Address"
-                    value={address}
-                    onChangeText={setAddress}
-                    style={styles.gap}
-                  />
-
-                  <Label text="City" />
-                  <TextField
-                    placeholder="Enter City"
-                    value={city}
-                    onChangeText={setCity}
-                    style={styles.gap}
-                  />
-
-                  <Label text="Country" />
-                  <Dropdown
-                    value={country}
-                    options={['India', 'UAE', 'Other']}
-                    onSelect={setCountry}
-                  />
-                </Section>
-
-                {/* Other Details */}
-                <Section title="Other Details">
-                  <Label text="Remarks" />
-                  <TextField
-                    placeholder="Optional notes..."
-                    value={remarks}
-                    onChangeText={setRemarks}
-                    multiline
-                    textAlignVertical="top"
-                    style={styles.area}
-                    inputStyle={styles.areaInput}
-                  />
-                </Section>
+                {/* ================= STEP 4: REMARKS / OTHER DETAILS ================= */}
+                {currentStep === 4 && (
+                  <View>
+                    <Text style={styles.sectionHeading}>Other Details</Text>
+                    <Label text="Remarks" />
+                    <TextField
+                      placeholder="Optional notes..."
+                      value={remarks}
+                      onChangeText={setRemarks}
+                      multiline
+                      textAlignVertical="top"
+                      style={styles.area}
+                      inputStyle={styles.areaInput}
+                    />
+                  </View>
+                )}
               </ScrollView>
 
+              {/* Footer Buttons */}
               <View style={shared.footer}>
                 <GrayButton
-                  title="Reset"
-                  onPress={handleReset}
+                  title={currentStep === 1 ? 'Cancel' : '← Back'}
+                  onPress={handleBackStep}
                   disabled={saving}
                   style={styles.resetButton}
                 />
 
                 <GreenButton
-                  title={saving ? 'Saving...' : 'Save Payment'}
-                  icon="content-save-outline"
-                  onPress={handleSave}
+                  title={
+                    saving
+                      ? 'Saving...'
+                      : currentStep === 4
+                      ? 'Save Payment'
+                      : 'Next →'
+                  }
+                  icon={currentStep === 4 ? 'content-save-outline' : undefined}
+                  onPress={handleNext}
                   disabled={saving}
                   style={styles.saveButton}
                 />
@@ -579,46 +699,57 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    marginTop: 15,
+    marginTop: 20,
     backgroundColor: colors.white,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
-
-  centerContainer: {
+  flex: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: wp('4%'),
+    paddingTop: 14,
+    paddingBottom: 24,
+    marginTop: 20,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingHorizontal: 2,
+  },
+  stepItem: { alignItems: 'center', flex: 1 },
+  stepCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 4,
   },
-
-  loadingText: {
-    marginTop: 12,
-    fontSize: FontSize.base,
+  stepCircleActive: { backgroundColor: colors.primary || '#2E8B3E' },
+  stepCirclePassed: { backgroundColor: colors.success || '#10B981' },
+  stepNoText: { fontSize: 11, fontFamily: FontFamily.bold, color: '#6B7280' },
+  stepNoTextActive: { color: colors.white },
+  stepTitleText: {
+    fontSize: 10,
     fontFamily: FontFamily.medium,
     color: '#6B7280',
+    textAlign: 'center',
   },
-
-  loaderOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
+  stepTitleTextActive: {
+    fontFamily: FontFamily.bold,
+    color: colors.primary || '#2E8B3E',
   },
-
-  loaderText: {
-    marginTop: 12,
+  sectionHeading: {
     fontSize: FontSize.base,
-    fontFamily: FontFamily.medium,
-    color: '#6B7280',
+    fontFamily: FontFamily.bold,
+    color: '#111827',
+    marginBottom: 12,
   },
-
-  // Loader shown inside the input box (right side, left of the dropdown arrow)
   fieldLoader: {
     position: 'absolute',
     top: 0,
@@ -627,39 +758,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
-
-  disabledField: {
-    opacity: 0.5,
-  },
-
-  memberLoaderWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingLeft: 12,
-  },
-
-  memberLoaderInline: {
-    marginRight: 8,
-  },
-
-  flex: {
-    flex: 1,
-  },
-
   gap: {
     marginBottom: 12,
   },
-
   noMargin: {
     marginBottom: 0,
   },
-
   dim: {
     opacity: 0.45,
   },
-
-  // Amount table
   tableHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -667,63 +774,58 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 6,
     marginBottom: 8,
+    borderRadius: 6,
   },
-
   headText: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: '#374151',
   },
-
   fundRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-
   hashCol: {
     width: 26,
     paddingLeft: 4,
   },
-
   hashText: {
     fontSize: FontSize.base,
     fontFamily: FontFamily.regular,
     color: '#111827',
   },
-
   typeCol: {
     flex: 1.3,
     marginRight: 6,
   },
-
   amountCol: {
     flex: 1,
     marginRight: 4,
   },
-
   deleteCol: {
     width: 32,
     alignItems: 'center',
   },
-
   smallField: {
     height: 42,
     paddingHorizontal: 8,
   },
-
   addFund: {
     alignSelf: 'flex-end',
     height: 40,
     marginTop: 4,
   },
-
-  // Donor
+  donorHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   anonRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-
   anonBox: {
     width: 20,
     height: 20,
@@ -735,20 +837,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 6,
   },
-
   anonText: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: '#334155',
   },
-
-  memberHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-
   memberField: {
     height: 48,
     flexDirection: 'row',
@@ -760,7 +853,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.white,
   },
-
   memberFieldText: {
     flex: 1,
     marginRight: 8,
@@ -768,40 +860,23 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     color: '#111827',
   },
-
   memberFieldPlaceholder: {
     color: '#9CA3AF',
   },
-
-  addMember: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  addMemberText: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.semiBold,
-    color: '#2E8B3E',
-    marginLeft: 4,
-  },
-
   area: {
     height: 90,
     alignItems: 'flex-start',
     paddingTop: 10,
   },
-
   areaInput: {
     height: '100%',
   },
-
   resetButton: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
-
   saveButton: {
-    flex: 1.6,
+    flex: 1.5,
   },
 });
 
