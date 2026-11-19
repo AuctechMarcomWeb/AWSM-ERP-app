@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import colors from '../../../themes/colors';
@@ -22,202 +25,207 @@ import {
   Dropdown,
   GreenButton,
   GrayButton,
-  Badge,
-  shared,
 } from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
-
-const SESSIONS = ['All Sessions', '2026-2027', '2025-2026', '2024-2025'];
-const COURSE_TYPES = ['All', 'Senior', 'Junior'];
-const STATUS_OPTIONS = ['All Status', 'Active', 'Suspended', 'Expired'];
-
-const SCHOLARSHIP_RATES_DATA = [
-  {
-    id: '1',
-    courseType: 'Senior',
-    className: 'OTHERS',
-    ratePerMonth: '0',
-    amountPerYear: '0',
-    session: '2026-2027',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    courseType: 'Junior',
-    className: 'Not Eligible',
-    ratePerMonth: '0',
-    amountPerYear: '0',
-    session: '2026-2027',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    courseType: 'Senior',
-    className: 'FIRE & SAFETY ENGINEERING',
-    ratePerMonth: '0',
-    amountPerYear: '0',
-    session: '2026-2027',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    courseType: 'Junior',
-    className: 'class IX',
-    ratePerMonth: '375',
-    amountPerYear: '4500',
-    session: '2026-2027',
-    status: 'Active',
-  },
-  {
-    id: '5',
-    courseType: 'Junior',
-    className: 'Class X',
-    ratePerMonth: '375',
-    amountPerYear: '4500',
-    session: '2026-2027',
-    status: 'Active',
-  },
-  {
-    id: '6',
-    courseType: 'Junior',
-    className: 'Class XI',
-    ratePerMonth: '375',
-    amountPerYear: '4500',
-    session: '2026-2027',
-    status: 'Active',
-  },
-];
+import {
+  getScholarshipRates,
+  deleteScholarshipRate,
+} from '../../../api/masters';
 
 const RateOfScholarshipMasterScreen = ({ navigation }) => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Applied Filters
+  // Filter states
   const [applied, setApplied] = useState({
     search: '',
-    session: 'All Sessions',
-    courseType: 'All',
-    status: 'Active',
+    isActive: true,
   });
+  const [draftIsActive, setDraftIsActive] = useState(true);
 
-  // Draft Filters in Modal
-  const [draftSession, setDraftSession] = useState('All Sessions');
-  const [draftCourseType, setDraftCourseType] = useState('All');
-  const [draftStatus, setDraftStatus] = useState('Active');
+  // Load scholarship rates with filters
+  const loadData = useCallback(
+    async (pageNum = 1, searchTerm = '', isActive = true) => {
+      try {
+        setLoading(true);
+        const result = await getScholarshipRates(
+          pageNum,
+          50,
+          searchTerm.trim(),
+        );
+
+        const list = Array.isArray(result?.data?.data)
+          ? result.data.data
+          : Array.isArray(result?.data)
+          ? result.data
+          : [];
+
+        const filtered = list.filter(item => item.isActive === isActive);
+        setData(filtered);
+        setTotal(result?.data?.total || result?.total || filtered.length);
+        setPage(result?.data?.currentPage || pageNum);
+      } catch (error) {
+        Alert.alert(
+          'Error',
+          error.message || 'Failed to load scholarship rates',
+        );
+        console.error('Load error:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  // Debounce search so API doesn't fire on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setApplied(prev => (prev.search === search ? prev : { ...prev, search }));
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Single effect when applied filters change
+  useEffect(() => {
+    loadData(1, applied.search, applied.isActive);
+  }, [applied, loadData]);
+
+  // Refresh when returning to this screen after add/edit
+  useFocusEffect(
+    useCallback(() => {
+      loadData(1, applied.search, applied.isActive);
+    }, [applied.search, applied.isActive, loadData]),
+  );
+
+  // Handle search
+  const handleSearch = text => {
+    setSearch(text);
+  };
 
   const openFilter = () => {
-    setDraftSession(applied.session);
-    setDraftCourseType(applied.courseType);
-    setDraftStatus(applied.status);
+    setDraftIsActive(applied.isActive);
     setFilterOpen(true);
   };
 
   const applyFilter = () => {
     setApplied(prev => ({
       ...prev,
-      session: draftSession,
-      courseType: draftCourseType,
-      status: draftStatus,
+      isActive: draftIsActive,
     }));
     setFilterOpen(false);
   };
 
   const handleReset = () => {
-    setDraftSession('All Sessions');
-    setDraftCourseType('All');
-    setDraftStatus('Active');
     setSearch('');
+    setDraftIsActive(true);
     setApplied({
       search: '',
-      session: 'All Sessions',
-      courseType: 'All',
-      status: 'Active',
+      isActive: true,
     });
+    setFilterOpen(false);
   };
 
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return SCHOLARSHIP_RATES_DATA.filter(item => {
-      if (
-        applied.session !== 'All Sessions' &&
-        item.session !== applied.session
-      )
-        return false;
-      if (
-        applied.courseType !== 'All' &&
-        item.courseType !== applied.courseType
-      )
-        return false;
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
-
-      if (q && !item.className.toLowerCase().includes(q)) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
+  // Handle delete
+  const handleDelete = item => {
+    Alert.alert('Delete', `Delete "${item.name}"?`, [
+      { text: 'Cancel' },
+      {
+        text: 'Delete',
+        onPress: async () => {
+          try {
+            const result = await deleteScholarshipRate(item.id || item._id);
+            if (result?.success || result?.statusCode === 200) {
+              Alert.alert('Success', 'Deleted');
+              loadData(1, applied.search, applied.isActive);
+            } else {
+              Alert.alert('Error', result?.message || 'Delete failed');
+            }
+          } catch (error) {
+            Alert.alert('Error', error.message);
+          }
+        },
+        style: 'destructive',
+      },
+    ]);
+  };
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>#{index + 1}</Text>
-        <Badge text={item.status} />
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Name of Class</Text>
-          <Text style={styles.valTextBold}>{item.className}</Text>
-        </View>
-        <View style={styles.infoColRight}>
-          <Text style={styles.labelKey}>Course Type</Text>
-          <Text style={styles.valTextPrimary}>{item.courseType}</Text>
-        </View>
-      </View>
-
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Rate Per Month</Text>
-          <Text style={styles.valText}>₹ {item.ratePerMonth}</Text>
-        </View>
-        <View style={styles.infoColRight}>
-          <Text style={styles.labelKey}>Amount Per Year</Text>
+        <Text style={styles.srNo}>{(page - 1) * 50 + index + 1}</Text>
+        <Text style={styles.nameText}>{item.name}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: item.isActive ? '#D1FAE5' : '#FEE2E2' },
+          ]}
+        >
           <Text
             style={[
-              styles.valText,
-              { fontFamily: FontFamily.bold, color: '#15803D' },
+              styles.statusText,
+              { color: item.isActive ? '#065F46' : '#991B1B' },
             ]}
           >
-            ₹ {item.amountPerYear}
+            {item.isActive ? 'Active' : 'Inactive'}
           </Text>
         </View>
       </View>
 
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Session</Text>
-          <Text style={styles.valText}>{item.session}</Text>
-        </View>
+      <View style={styles.metaRow}>
+        <Text style={styles.metaText}>
+          Monthly:{' '}
+          <Text style={styles.metaBold}>₹{item.ratePerMonth ?? 0}</Text>
+        </Text>
+        <Text style={styles.metaText}>
+          Yearly:{' '}
+          <Text style={styles.metaBold}>₹{item.amountPerYear ?? 0}</Text>
+        </Text>
+        {item.courseType ? (
+          <Text style={styles.metaTag}>{item.courseType}</Text>
+        ) : null}
       </View>
 
-      <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() =>
-          Alert.alert('Action', `Manage rate for ${item.className}`)
-        }
-      >
-        <Icon
-          name="pencil-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>Edit / Manage Rate</Text>
-      </TouchableOpacity>
+      <View style={styles.divider} />
+
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          activeOpacity={0.8}
+          onPress={() =>
+            navigation.navigate('AddRateOfScholarshipScreen', {
+              scholarshipRateData: item,
+            })
+          }
+        >
+          <Icon
+            name="pencil-outline"
+            size={16}
+            color="#047857"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.actionBtnText}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.deleteBtn]}
+          activeOpacity={0.8}
+          onPress={() => handleDelete(item)}
+        >
+          <Icon
+            name="trash-can-outline"
+            size={16}
+            color="#DC2626"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.actionBtnText, styles.deleteBtnText]}>
+            Delete
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -226,65 +234,76 @@ const RateOfScholarshipMasterScreen = ({ navigation }) => {
       <View style={styles.container}>
         <BackHeader
           navigation={navigation}
-          title="Rate of Scholarship Master"
-          onBack={() => navigation && navigation.goBack()}
+          title="Scholarship Rates"
+          onBack={() => navigation.goBack()}
         />
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search class name..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
+            {loading && data.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <FlatList
+                data={data}
+                keyExtractor={item => String(item.id || item._id)}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={loading}
+                    onRefresh={() =>
+                      loadData(1, applied.search, applied.isActive)
+                    }
+                  />
+                }
+                ListHeaderComponent={
+                  <View>
+                    {/* Search & Filter */}
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search scholarship rate..."
+                          value={search}
+                          onChangeText={handleSearch}
+                        />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                      </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
-                      <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
-                      />
-                    </TouchableOpacity>
                   </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name="cash-register" size={40} color="#9CA3AF" />
-                  <Text style={styles.emptyTitle}>
-                    No scholarship rates found
-                  </Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Icon name="briefcase-outline" size={40} color="#9CA3AF" />
+                    <Text style={styles.emptyTitle}>
+                      No scholarship rates found
+                    </Text>
+                  </View>
+                }
+                ListFooterComponent={
+                  loading && data.length > 0 ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : null
+                }
+              />
+            )}
 
-            {/* Bottom Button Bar for Adding New Rate */}
+            {/* Bottom Add Button */}
             <View style={styles.bottomBar}>
               <GreenButton
-                title="+ Add Rate"
-                icon="plus"
+                title="+ Add Scholarship Rate"
                 onPress={() =>
                   navigation.navigate('AddRateOfScholarshipScreen')
                 }
@@ -317,27 +336,11 @@ const RateOfScholarshipMasterScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              <Label text="Session" />
-              <Dropdown
-                value={draftSession}
-                options={SESSIONS}
-                onSelect={setDraftSession}
-                style={styles.modalGap}
-              />
-
-              <Label text="Course Type" />
-              <Dropdown
-                value={draftCourseType}
-                options={COURSE_TYPES}
-                onSelect={setDraftCourseType}
-                style={styles.modalGap}
-              />
-
               <Label text="Status" />
               <Dropdown
-                value={draftStatus}
-                options={STATUS_OPTIONS}
-                onSelect={setDraftStatus}
+                value={draftIsActive ? 'Active' : 'Inactive'}
+                options={['Active', 'Inactive']}
+                onSelect={val => setDraftIsActive(val === 'Active')}
                 style={styles.modalGap}
               />
 
@@ -374,61 +377,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
     overflow: 'hidden',
   },
-
-  topHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  screenDesc: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.regular,
-    color: colors.textSecondary,
+  centerContainer: {
     flex: 1,
-  },
-  topActionBtns: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
   },
-  exportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  exportText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: '#DC2626',
-    marginLeft: 3,
-  },
-  orderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  orderText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
-    marginLeft: 3,
-  },
-
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-         marginTop: 25,
+    marginTop: 25,
+    marginBottom: 14,
   },
   searchFlex: {
     flex: 1,
@@ -442,18 +400,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
   },
-
   listContent: {
     paddingHorizontal: wp('4%'),
     paddingBottom: 20,
     paddingTop: 8,
   },
   card: {
-    backgroundColor: colors.cardColorLight,
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: colors.neutral.border,
-    borderRadius: 12,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
     padding: 12,
     marginBottom: 12,
   },
@@ -461,98 +419,107 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
+  },
+  nameText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: colors.TitleColor,
+    flex: 1,
+    marginLeft: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 8,
+  },
+  metaText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+    color: '#4B5563',
+  },
+  metaBold: {
+    fontFamily: FontFamily.semiBold,
+    color: colors.TitleColor,
+  },
+  metaTag: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: colors.primary,
+    backgroundColor: '#E6F7EE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.neutral.border,
+    backgroundColor: '#E5E7EB',
     marginBottom: 8,
   },
-  infoGrid: {
+  actionContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  infoCol: {
-    flex: 1,
-  },
-  infoColRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  labelKey: {
-    fontSize: 10,
-    fontFamily: FontFamily.medium,
-    color: colors.textSecondary,
-  },
-  valTextBold: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
-    color: colors.TitleColor,
-  },
-  valTextPrimary: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.semiBold,
-    color: colors.primary,
-  },
-  valText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.regular,
-    color: colors.TitleColor,
+    gap: 10,
   },
   actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: 8,
-    paddingVertical: 8,
-    marginTop: 8,
+    backgroundColor: '#E6F7EE',
+    borderRadius: 10,
+    paddingVertical: 9,
     borderWidth: 1,
-    borderColor: '#C6F6D5',
+    borderColor: '#A7E8C5',
+  },
+  deleteBtn: {
+    backgroundColor: '#FDECEC',
+    borderColor: '#F8C4C4',
   },
   actionBtnText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: '#047857',
   },
-
+  deleteBtnText: {
+    color: '#DC2626',
+  },
   bottomBar: {
     paddingHorizontal: wp('4%'),
     paddingVertical: 12,
     backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral.border,
+    borderTopColor: '#E5E7EB',
   },
   addButtonBar: {
     height: 48,
-    width: '100%',
   },
-
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
   },
   emptyTitle: {
-    fontSize: FontSize.lg,
-    fontFamily: FontFamily.bold,
-    color: '#1F2937',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  emptySubtitle: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: '#6B7280',
-    textAlign: 'center',
+    marginTop: 8,
   },
-
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
+  Modal,
   StyleSheet,
   Alert,
   ActivityIndicator,
@@ -16,9 +17,17 @@ import { FontFamily, FontSize } from '../../../themes/typography';
 
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
-import { Body, SearchField, GreenButton } from '../../../components/Formparts';
+import {
+  Body,
+  Label,
+  SearchField,
+  Dropdown,
+  GreenButton,
+  GrayButton,
+} from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { getDesignations, deleteDesignation } from '../../../api/masters';
+import { useFocusEffect } from '@react-navigation/native';
 
 const DesignationMasterScreen = ({ navigation }) => {
   const [data, setData] = useState([]);
@@ -26,115 +35,172 @@ const DesignationMasterScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  // Load designations
-  const loadDesignations = async (pageNum = 1, searchTerm = '') => {
-    try {
-      setLoading(true);
-      const result = await getDesignations(pageNum, 50, searchTerm);
-      
-      if (result?.data) {
-        setData(result.data);
-        setTotal(result.total || 0);
+  // Filter states
+  const [applied, setApplied] = useState({
+    search: '',
+    isActive: true,
+  });
+  const [draftIsActive, setDraftIsActive] = useState(true);
+
+  // Load designations with filters
+  const loadDesignations = useCallback(
+    async (pageNum = 1, searchTerm = '', isActive = true) => {
+      try {
+        setLoading(true);
+
+        const result = await getDesignations(pageNum, 50, searchTerm);
+
+        console.log('Designation API Response:', result);
+
+        const rawList = Array.isArray(result?.data)
+          ? result.data
+          : Array.isArray(result?.data?.data)
+          ? result.data.data
+          : Array.isArray(result?.data?.designations)
+          ? result.data.designations
+          : [];
+
+        const filtered = rawList.filter(item => item.isActive === isActive);
+
+        setData(filtered);
+        setTotal(result?.total || result?.data?.total || filtered.length);
         setPage(pageNum);
-      }
-    } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to load designations');
-      console.error('Load error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } catch (error) {
+        console.error('Load Designation Error:', error);
 
+        Alert.alert(
+          'Error',
+          error?.response?.data?.message ||
+            error.message ||
+            'Failed to load designations',
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
   // Load on mount
-  useEffect(() => {
-    loadDesignations(1, '');
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadDesignations(1, applied.search, applied.isActive);
+    }, [loadDesignations, applied.search, applied.isActive]),
+  );
 
   // Handle search
-  const handleSearch = (text) => {
+  const handleSearch = text => {
     setSearch(text);
-    if (text.length > 0) {
-      loadDesignations(1, text);
-    } else {
-      loadDesignations(1, '');
-    }
+    setApplied(prev => ({ ...prev, search: text }));
+  };
+
+  const openFilter = () => {
+    setDraftIsActive(applied.isActive);
+    setFilterOpen(true);
+  };
+
+  const applyFilter = () => {
+    setApplied(prev => ({
+      ...prev,
+      isActive: draftIsActive,
+    }));
+    setFilterOpen(false);
+  };
+
+  const handleReset = () => {
+    setSearch('');
+    setDraftIsActive(true);
+    setApplied({
+      search: '',
+      isActive: true,
+    });
   };
 
   // Handle delete
-  const handleDelete = (item) => {
-    Alert.alert(
-      'Delete',
-      `Delete "${item.name}"?`,
-      [
-        { text: 'Cancel' },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            try {
-              const result = await deleteDesignation(item._id);
-              if (result?.success || result?.statusCode === 200) {
-                Alert.alert('Success', 'Deleted successfully');
-                loadDesignations(1, search);
-              } else {
-                Alert.alert('Error', result?.message || 'Delete failed');
-              }
-            } catch (error) {
-              Alert.alert('Error', error.message);
+  const handleDelete = item => {
+    Alert.alert('Delete', `Delete "${item.name}"?`, [
+      { text: 'Cancel' },
+      {
+        text: 'Delete',
+        onPress: async () => {
+          try {
+            const result = await deleteDesignation(item._id);
+            if (result?.success || result?.statusCode === 200) {
+              Alert.alert('Success', 'Deleted successfully');
+              loadDesignations(1, applied.search, applied.isActive);
+            } else {
+              Alert.alert('Error', result?.message || 'Delete failed');
             }
-          },
-          style: 'destructive',
+          } catch (error) {
+            Alert.alert('Error', error.message);
+          }
         },
-      ]
-    );
+        style: 'destructive',
+      },
+    ]);
   };
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardInfo}>
-          <Text style={styles.srNo}>#{(page - 1) * 50 + index + 1}</Text>
-          <Text style={styles.nameText}>{item.name}</Text>
-        </View>
-        <View style={styles.cardActions}>
-          <TouchableOpacity
-            onPress={() =>
-              navigation.navigate('AddDesignationScreen', { designationData: item })
-            }
-            style={styles.actionBtn}
+      <View style={styles.cardTopRow}>
+        <Text style={styles.srNo}>{(page - 1) * 50 + index + 1}</Text>
+        <Text style={styles.nameText}>{item.name}</Text>
+        <View
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 4,
+            backgroundColor: item.isActive ? '#D1FAE5' : '#FEE2E2',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: FontSize.sm,
+              fontFamily: FontFamily.semiBold,
+              color: item.isActive ? '#065F46' : '#991B1B',
+            }}
           >
-            <Icon name="pencil" size={18} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleDelete(item)}
-            style={[styles.actionBtn, styles.deleteBtnStyle]}
-          >
-            <Icon name="trash-can-outline" size={18} color="#DC2626" />
-          </TouchableOpacity>
+            {item.isActive ? 'Active' : 'Inactive'}
+          </Text>
         </View>
       </View>
 
       <View style={styles.divider} />
 
-      <View style={styles.statusRow}>
-        <Text style={styles.label}>Status</Text>
-        <View
-          style={[
-            styles.statusBadge,
-            {
-              backgroundColor: item.isActive ? '#D1FAE5' : '#FEE2E2',
-            },
-          ]}
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          activeOpacity={0.8}
+          onPress={() =>
+            navigation.navigate('AddDesignationScreen', {
+              designationData: item,
+            })
+          }
         >
-          <Text
-            style={[
-              styles.statusText,
-              { color: item.isActive ? '#065F46' : '#991B1B' },
-            ]}
-          >
-            {item.isActive ? 'Active' : 'Inactive'}
+          <Icon
+            name="pencil-outline"
+            size={16}
+            color={colors.primary}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.actionBtnText}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.deleteBtn]}
+          activeOpacity={0.8}
+          onPress={() => handleDelete(item)}
+        >
+          <Icon
+            name="trash-can-outline"
+            size={16}
+            color="#DC2626"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.actionBtnText, { color: '#DC2626' }]}>
+            Delete
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -150,23 +216,6 @@ const DesignationMasterScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            {/* Search & Add Button */}
-            <View style={styles.headerRow}>
-              <View style={styles.searchFlex}>
-                <SearchField
-                  placeholder="Search designation..."
-                  value={search}
-                  onChangeText={handleSearch}
-                />
-              </View>
-              <GreenButton
-                title="+ Add"
-                onPress={() => navigation.navigate('AddDesignationScreen')}
-                style={styles.addBtn}
-              />
-            </View>
-
-            {/* List */}
             {loading && data.length === 0 ? (
               <View style={styles.centerContainer}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -174,16 +223,43 @@ const DesignationMasterScreen = ({ navigation }) => {
             ) : (
               <FlatList
                 data={data}
-                keyExtractor={(item) => item._id}
+                keyExtractor={item => item._id}
                 renderItem={renderItem}
-                onEndReachedThreshold={0.2}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
                 refreshControl={
                   <RefreshControl
                     refreshing={loading}
-                    onRefresh={() => loadDesignations(1, search)}
+                    onRefresh={() =>
+                      loadDesignations(1, applied.search, applied.isActive)
+                    }
                   />
                 }
-                contentContainerStyle={styles.listContent}
+                ListHeaderComponent={
+                  <View>
+                    {/* Search & Filter */}
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search designation..."
+                          value={search}
+                          onChangeText={handleSearch}
+                        />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                }
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
                     <Icon name="briefcase-outline" size={40} color="#9CA3AF" />
@@ -191,12 +267,70 @@ const DesignationMasterScreen = ({ navigation }) => {
                   </View>
                 }
                 ListFooterComponent={
-                  loading && <ActivityIndicator size="small" color={colors.primary} />
+                  loading && data.length > 0 ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : null
                 }
               />
             )}
+
+            {/* Bottom Add Button */}
+            <View style={styles.bottomBar}>
+              <GreenButton
+                title="+ Add Designation"
+                onPress={() => navigation.navigate('AddDesignationScreen')}
+                style={styles.addButtonBar}
+              />
+            </View>
           </Body>
         </View>
+
+        {/* Filter Modal */}
+        <Modal
+          visible={filterOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setFilterOpen(false)}
+        >
+          <TouchableOpacity
+            style={styles.overlay}
+            activeOpacity={1}
+            onPress={() => setFilterOpen(false)}
+          >
+            <View
+              style={styles.filterSheet}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.filterTitle}>Filter Designations</Text>
+                <TouchableOpacity onPress={() => setFilterOpen(false)}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Label text="Status" />
+              <Dropdown
+                value={draftIsActive ? 'Active' : 'Inactive'}
+                options={['Active', 'Inactive']}
+                onSelect={val => setDraftIsActive(val === 'Active')}
+                style={styles.modalGap}
+              />
+
+              <View style={styles.actionRow}>
+                <GreenButton
+                  title="Apply"
+                  onPress={applyFilter}
+                  style={styles.applyBtn}
+                />
+                <GrayButton
+                  title="Reset"
+                  onPress={handleReset}
+                  style={styles.resetBtn}
+                />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
     </AppLayout>
   );
@@ -209,30 +343,44 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    marginTop: 0,
     backgroundColor: colors.white,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    overflow: 'hidden',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerRow: {
+  searchFilterContainer: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: wp('4%'),
-    paddingVertical: 12,
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    marginTop: 25,
+    marginBottom: 14,
   },
+
   searchFlex: {
     flex: 1,
+    marginRight: 8,
   },
-  addBtn: {
+
+  filterButton: {
+    width: 48,
     height: 48,
-    paddingHorizontal: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+    position: 'relative',
   },
+
   listContent: {
     paddingHorizontal: wp('4%'),
     paddingBottom: 20,
+    paddingTop: 8,
   },
   card: {
     backgroundColor: '#F3F4F6',
@@ -242,17 +390,14 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  cardHeader: {
+  cardTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
-  cardInfo: {
-    flex: 1,
-  },
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
@@ -260,46 +405,47 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: colors.TitleColor,
-    marginTop: 4,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-  },
-  deleteBtnStyle: {
-    backgroundColor: '#FEE2E2',
+    flex: 1,
+    marginLeft: 8,
   },
   divider: {
     height: 1,
     backgroundColor: '#E5E7EB',
     marginBottom: 8,
   },
-  statusRow: {
+  actionContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 8,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#C6F6D5',
   },
-  label: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.medium,
-    color: '#6B7280',
+  deleteBtn: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FECACA',
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  actionBtnText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.bold,
+    color: colors.primary,
   },
-  statusText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.semiBold,
+  bottomBar: {
+    paddingHorizontal: wp('4%'),
+    paddingVertical: 12,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  addButtonBar: {
+    height: 48,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -311,6 +457,45 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     color: '#6B7280',
     marginTop: 8,
+  },
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  filterSheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    paddingBottom: 30,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  filterTitle: {
+    fontSize: FontSize.lg,
+    fontFamily: FontFamily.bold,
+    color: colors.TitleColor,
+  },
+  modalGap: {
+    marginBottom: 12,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+  applyBtn: {
+    flex: 1,
+    marginRight: 8,
+    height: 48,
+  },
+  resetBtn: {
+    flex: 1,
+    height: 48,
   },
 });
 

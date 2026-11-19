@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -26,51 +28,17 @@ import {
   shared,
 } from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { getBanks, deleteBank } from '../../../api/masters';
+import { useFocusEffect } from '@react-navigation/native';
 
 const STATUS_OPTIONS = ['All Status', 'Active', 'Suspended', 'Expired'];
 
-const BANKS_DATA = [
-  {
-    id: '1',
-    bankName: 'State Bank of India',
-    ifsc: 'SBIN0050595',
-    accountNo: '65001711261',
-    branch: 'State Bank of India, Kelanagar',
-    description: '-',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    bankName: 'State Bank of India',
-    ifsc: 'SBIN0003570',
-    accountNo: '10225932310',
-    branch: 'State Bank of India, Medical Br., Aligarh',
-    description: '-',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    bankName: 'BMC Bank',
-    ifsc: 'BMCB0000047',
-    accountNo: '203100100003786',
-    branch: 'BMC Bank, Aligarh',
-    description: '-',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    bankName: 'Bank of Baroda',
-    ifsc: 'BARB0MALKHA',
-    accountNo: '21610100001116',
-    branch: 'Bank of Baroda, Malkhan Nagar',
-    description: '-',
-    status: 'Active',
-  },
-];
-
 const BankMasterScreen = ({ navigation }) => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Applied Filters
   const [applied, setApplied] = useState({
@@ -81,6 +49,61 @@ const BankMasterScreen = ({ navigation }) => {
   // Draft Filters in Modal
   const [draftStatus, setDraftStatus] = useState('Active');
 
+  // Load banks on mount and when filters change
+  useEffect(() => {
+    loadBanks();
+  }, [applied]);
+
+  const loadBanks = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const result = await getBanks(1, 50, applied.search, undefined);
+
+      const rawList = Array.isArray(result?.data)
+        ? result.data
+        : Array.isArray(result?.banks)
+        ? result.banks
+        : Array.isArray(result?.data?.banks)
+        ? result.data.banks
+        : [];
+
+      // Status filter
+      const filtered = rawList.filter(item => {
+        if (applied.status === 'All Status') return true;
+
+        if (applied.status === 'Active') {
+          return item.isActive === true;
+        }
+
+        if (applied.status === 'Inactive') {
+          return item.isActive === false;
+        }
+
+        return item.status === applied.status;
+      });
+
+      setData(filtered);
+      setPage(1);
+    } catch (error) {
+      console.error('Bank Load Error:', error?.response?.data || error);
+
+      Alert.alert(
+        'Error',
+        error?.response?.data?.message ||
+          error.message ||
+          'Failed to load banks',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [applied.search, applied.status]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBanks();
+    }, [loadBanks]),
+  );
   const openFilter = () => {
     setDraftStatus(applied.status);
     setFilterOpen(true);
@@ -103,31 +126,77 @@ const BankMasterScreen = ({ navigation }) => {
     });
   };
 
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return BANKS_DATA.filter(item => {
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
+  const handleDelete = item => {
+    Alert.alert('Delete', `Delete "${item.name}"?`, [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const id = item._id || item.id;
 
-      if (
-        q &&
-        !item.bankName.toLowerCase().includes(q) &&
-        !item.ifsc.toLowerCase().includes(q) &&
-        !item.accountNo.toLowerCase().includes(q) &&
-        !item.branch.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
+            if (!id) {
+              Alert.alert('Error', 'Bank ID not found.');
+              return;
+            }
+
+            const result = await deleteBank(id);
+
+            const isSuccess =
+              result?.success === true ||
+              result?.statusCode === 200 ||
+              result?.statusCode === 201 ||
+              result?.data?.success === true;
+
+            if (isSuccess) {
+              Alert.alert('Success', 'Bank deleted successfully!');
+
+              loadBanks();
+            } else {
+              Alert.alert('Error', result?.message || 'Failed to delete bank.');
+            }
+          } catch (error) {
+            console.error('Bank Delete Error:', error?.response?.data || error);
+
+            Alert.alert(
+              'Error',
+              error?.response?.data?.message ||
+                error.message ||
+                'Failed to delete bank.',
+            );
+          }
+        },
+      },
+    ]);
+  };
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>#{index + 1}</Text>
-        <Text style={styles.idText}>A/C: {item.accountNo}</Text>
-        <Badge text={item.status} />
+        <Text style={styles.srNo}>{(page - 1) * 50 + index + 1}</Text>
+        <Text style={styles.idText}>A/C: {item.accountNumber}</Text>
+        <View
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 4,
+            backgroundColor: item.isActive ? '#D1FAE5' : '#FEE2E2',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: FontSize.sm,
+              fontFamily: FontFamily.semiBold,
+              color: item.isActive ? '#065F46' : '#991B1B',
+            }}
+          >
+            {item.isActive ? 'Active' : 'Inactive'}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.divider} />
@@ -135,7 +204,7 @@ const BankMasterScreen = ({ navigation }) => {
       <View style={styles.infoGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Bank Name</Text>
-          <Text style={styles.valTextBold}>{item.bankName}</Text>
+          <Text style={styles.valTextBold}>{item.name}</Text>
         </View>
         <View style={styles.infoColRight}>
           <Text style={styles.labelKey}>IFSC Number</Text>
@@ -147,24 +216,43 @@ const BankMasterScreen = ({ navigation }) => {
         <View style={styles.infoCol}>
           <Text style={styles.labelKey}>Branch Address</Text>
           <Text style={styles.valText} numberOfLines={2}>
-            {item.branch}
+            {item.branchAddress}
           </Text>
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() => Alert.alert('Action', `Manage bank: ${item.bankName}`)}
-      >
-        <Icon
-          name="pencil-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>Edit / Manage Bank</Text>
-      </TouchableOpacity>
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          activeOpacity={0.8}
+          onPress={() =>
+            navigation.navigate('AddBankScreen', { bankData: item })
+          }
+        >
+          <Icon
+            name="pencil-outline"
+            size={16}
+            color={colors.primary}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.actionBtnText}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.deleteBtn]}
+          activeOpacity={0.8}
+          onPress={() => handleDelete(item)}
+        >
+          <Icon
+            name="trash-can-outline"
+            size={16}
+            color="#DC2626"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.actionBtnText, { color: '#DC2626' }]}>
+            Delete
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -179,57 +267,70 @@ const BankMasterScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search bank name, IFSC..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
-                    </View>
+            {loading && data.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <FlatList
+                data={data}
+                keyExtractor={item => item._id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl refreshing={loading} onRefresh={loadBanks} />
+                }
+                ListHeaderComponent={
+                  <View>
+                    {/* Search Field & Filter Icon Row */}
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search bank name, IFSC..."
+                          value={search}
+                          onChangeText={text => {
+                            setSearch(text);
+                            setApplied(prev => ({ ...prev, search: text }));
+                          }}
+                        />
+                      </View>
 
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
-                      <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
-                      />
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={openFilter}
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name="bank-outline" size={40} color="#9CA3AF" />
-                  <Text style={styles.emptyTitle}>No banks found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Icon name="bank-outline" size={40} color="#9CA3AF" />
+                    <Text style={styles.emptyTitle}>No banks found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try adjusting your search or filters.
+                    </Text>
+                  </View>
+                }
+                ListFooterComponent={
+                  loading && data.length > 0 ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : null
+                }
+              />
+            )}
 
             {/* Bottom Button Bar for Adding New Bank */}
             <View style={styles.bottomBar}>
               <GreenButton
                 title="+ Add Bank"
-                icon="plus"
                 onPress={() => navigation.navigate('AddBankScreen')}
                 style={styles.addButtonBar}
               />
@@ -301,56 +402,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
     overflow: 'hidden',
   },
-
-  topHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  screenDesc: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.regular,
-    color: colors.textSecondary,
+  centerContainer: {
     flex: 1,
-  },
-  topActionBtns: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
   },
-  exportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  exportText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: '#DC2626',
-    marginLeft: 3,
-  },
-  orderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  orderText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
-    marginLeft: 3,
-  },
-
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -370,7 +426,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 2,
   },
-
   listContent: {
     paddingHorizontal: wp('4%'),
     paddingBottom: 20,
@@ -391,12 +446,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
   idText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },
@@ -418,7 +473,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   labelKey: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },
@@ -428,32 +483,40 @@ const styles = StyleSheet.create({
     color: colors.TitleColor,
   },
   valTextPrimary: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: colors.primary,
   },
   valText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: colors.TitleColor,
   },
+  actionContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
   actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primaryLight,
     borderRadius: 8,
     paddingVertical: 8,
-    marginTop: 8,
     borderWidth: 1,
     borderColor: '#C6F6D5',
   },
+  deleteBtn: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FECACA',
+  },
   actionBtnText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
-
   bottomBar: {
     paddingHorizontal: wp('4%'),
     paddingVertical: 12,
@@ -465,7 +528,6 @@ const styles = StyleSheet.create({
     height: 48,
     width: '100%',
   },
-
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -484,7 +546,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
   },
-
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',

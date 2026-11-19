@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
   Alert,
 } from 'react-native';
 
@@ -22,8 +24,6 @@ import {
   Dropdown,
   GreenButton,
   GrayButton,
-  Badge,
-  shared,
 } from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 
@@ -37,73 +37,17 @@ const MEMBER_TYPES = [
 const MEMBER_STATUSES = ['All Status', 'Active', 'Suspended', 'Expired'];
 const SORT_OPTIONS = ['Recent', 'Oldest', 'Name (A-Z)'];
 
-const COLLECTED_BY_DATA = [
-  {
-    id: '1',
-    memberId: '1111',
-    name: 'Head Office',
-    memberType: '-',
-    mobile: '-',
-    age: '-',
-    city: '-',
-    state: '-',
-    address: '-',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    memberId: '2222',
-    name: 'Digital Drive',
-    memberType: '-',
-    mobile: '-',
-    age: '-',
-    city: '-',
-    state: '-',
-    address: '-',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    memberId: '0001',
-    name: 'Haji Dr S Mohd. Abbas Zaidi',
-    memberType: 'Elected Member',
-    mobile: '9818244361',
-    age: '-',
-    city: 'New Delhi',
-    state: 'New Delhi',
-    address: 'Kothi No. 11, Noor Nagar Extension, Jamia Nagar, New Delhi -25',
-    status: 'Active',
-  },
-  {
-    id: '4',
-    memberId: '0002',
-    name: 'Sanaul Hasan Zaidi',
-    memberType: 'Elected Member',
-    mobile: '9650241333',
-    age: '61 year',
-    city: 'Aligarh',
-    state: 'U.P',
-    address: 'A 102, Ishaq Residency, Sir Syed Nagar, Aligarh 202002',
-    status: 'Active',
-  },
-  {
-    id: '5',
-    memberId: '0003',
-    name: 'Mirza Ali Abbas',
-    memberType: 'Elected Member',
-    mobile: '8318585254',
-    age: '-',
-    city: 'Gorakhpur',
-    state: 'U.P',
-    address:
-      'S/o Late Mirza Ishrat Husain, Khadim Kada, Sheikhpura opp Panjatan Sports Geeta Press Gorakhpur, U.P-273005',
-    status: 'Active',
-  },
-];
-
 const CollectedByMasterScreen = ({ navigation }) => {
+  const [collectedByList, setCollectedByList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const searchTimerRef = useRef(null);
 
   // Applied Filters
   const [applied, setApplied] = useState({
@@ -114,28 +58,170 @@ const CollectedByMasterScreen = ({ navigation }) => {
   });
 
   // Draft Filters in Modal
+  const [draftSearch, setDraftSearch] = useState('');
   const [draftType, setDraftType] = useState('All Types');
   const [draftStatus, setDraftStatus] = useState('All Status');
   const [draftSort, setDraftSort] = useState('Recent');
 
+  // Load initial data
+  useEffect(() => {
+    loadCollectedByList(1, 50, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Check if there's more data to load
+  useEffect(() => {
+    if (collectedByList.length > 0 && collectedByList.length < total) {
+      setHasMore(true);
+    } else if (collectedByList.length === 0 || collectedByList.length >= total) {
+      setHasMore(false);
+    }
+  }, [collectedByList, total]);
+
+  // Load when filters change
+  useEffect(() => {
+    setLoadingMore(false);
+    setHasMore(true);
+
+    loadCollectedByList(1, 50, applied.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied]);
+
+  const loadCollectedByList = useCallback(async (pageNum = 1, limit = 50, search = '') => {
+    try {
+      setLoading(true);
+      // Mock API call - replace with actual API
+      const mockData = [
+        {
+          id: '1',
+          memberId: '1111',
+          name: 'Head Office',
+          memberType: '-',
+          mobile: '-',
+          age: '-',
+          city: '-',
+          state: '-',
+          address: '-',
+          status: 'Active',
+        },
+        {
+          id: '2',
+          memberId: '2222',
+          name: 'Digital Drive',
+          memberType: '-',
+          mobile: '-',
+          age: '-',
+          city: '-',
+          state: '-',
+          address: '-',
+          status: 'Active',
+        },
+        {
+          id: '3',
+          memberId: '0001',
+          name: 'Haji Dr S Mohd. Abbas Zaidi',
+          memberType: 'Elected Member',
+          mobile: '9818244361',
+          age: '-',
+          city: 'New Delhi',
+          state: 'New Delhi',
+          address: 'Kothi No. 11, Noor Nagar Extension, Jamia Nagar, New Delhi -25',
+          status: 'Active',
+        },
+        {
+          id: '4',
+          memberId: '0002',
+          name: 'Sanaul Hasan Zaidi',
+          memberType: 'Elected Member',
+          mobile: '9650241333',
+          age: '61 year',
+          city: 'Aligarh',
+          state: 'U.P',
+          address: 'A 102, Ishaq Residency, Sir Syed Nagar, Aligarh 202002',
+          status: 'Active',
+        },
+        {
+          id: '5',
+          memberId: '0003',
+          name: 'Mirza Ali Abbas',
+          memberType: 'Elected Member',
+          mobile: '8318585254',
+          age: '-',
+          city: 'Gorakhpur',
+          state: 'U.P',
+          address:
+            'S/o Late Mirza Ishrat Husain, Khadim Kada, Sheikhpura opp Panjatan Sports Geeta Press Gorakhpur, U.P-273005',
+          status: 'Active',
+        },
+      ];
+
+      if (pageNum === 1) {
+        setCollectedByList(mockData);
+      } else {
+        setCollectedByList(prev => [...prev, ...mockData]);
+      }
+      setTotal(mockData.length);
+      setPage(pageNum);
+    } catch (error) {
+      console.error('❌ Error loading collected by list:', error);
+      Alert.alert('Error', 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && !loading && !loadingMore && collectedByList.length > 0) {
+      setLoadingMore(true);
+      loadCollectedByList(page + 1, 50, applied.search).finally(() => {
+        setLoadingMore(false);
+      });
+    }
+  }, [hasMore, loading, loadingMore, collectedByList.length, page, applied, loadCollectedByList]);
+
+  const handleRefresh = useCallback(() => {
+    setHasMore(true);
+    loadCollectedByList(1, 50, applied.search);
+  }, [applied, loadCollectedByList]);
+
+  const handleSearchDebounce = text => {
+    setSearch(text);
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    if (text.length > 0) {
+      searchTimerRef.current = setTimeout(() => {
+        setApplied(prev => ({ ...prev, search: text }));
+      }, 500);
+    } else {
+      setApplied(prev => ({ ...prev, search: '' }));
+    }
+  };
+
   const openFilter = () => {
+    setDraftSearch(applied.search);
     setDraftType(applied.memberType);
     setDraftStatus(applied.status);
     setDraftSort(applied.sortBy);
-    setFilterOpen(true);
+    setTimeout(() => {
+      setFilterOpen(true);
+    }, 100);
   };
 
   const applyFilter = () => {
-    setApplied(prev => ({
-      ...prev,
+    setApplied({
+      search: draftSearch,
       memberType: draftType,
       status: draftStatus,
       sortBy: draftSort,
-    }));
+    });
     setFilterOpen(false);
   };
 
   const handleReset = () => {
+    setDraftSearch('');
     setDraftType('All Types');
     setDraftStatus('All Status');
     setDraftSort('Recent');
@@ -148,36 +234,35 @@ const CollectedByMasterScreen = ({ navigation }) => {
     });
   };
 
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return COLLECTED_BY_DATA.filter(item => {
-      if (
-        applied.memberType !== 'All Types' &&
-        item.memberType !== applied.memberType
-      )
-        return false;
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
-
-      if (
-        q &&
-        !item.name.toLowerCase().includes(q) &&
-        !item.memberId.toLowerCase().includes(q) &&
-        !item.city.toLowerCase().includes(q) &&
-        !item.mobile.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [applied]);
+  const hasActiveFilters =
+    applied.search?.trim() ||
+    applied.memberType !== 'All Types' ||
+    applied.status !== 'All Status' ||
+    applied.sortBy !== 'Recent';
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>#{index + 1}</Text>
+        <Text style={styles.srNo}>{(page - 1) * 50 + index + 1}</Text>
         <Text style={styles.idText}>ID: {item.memberId}</Text>
-        <Badge text={item.status} />
+        <View
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor:
+                item.status === 'Active' ? '#D1FAE5' : '#FEE2E2',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              { color: item.status === 'Active' ? '#065F46' : '#991B1B' },
+            ]}
+          >
+            {item.status}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.divider} />
@@ -221,20 +306,6 @@ const CollectedByMasterScreen = ({ navigation }) => {
           </Text>
         </View>
       </View>
-
-      <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() => Alert.alert('Action', `View details for ${item.name}`)}
-      >
-        <Icon
-          name="eye-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>View Details / Action</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -249,57 +320,82 @@ const CollectedByMasterScreen = ({ navigation }) => {
 
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* Top Bar: Export Button */}
+            {loading && collectedByList.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <>
+                <FlatList
+                  data={collectedByList}
+                  keyExtractor={item => item.id}
+                  renderItem={renderItem}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.listContent}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={loading}
+                      onRefresh={handleRefresh}
+                      colors={[colors.primary]}
+                      tintColor={colors.primary}
+                    />
+                  }
+                  onEndReached={handleLoadMore}
+                  onEndReachedThreshold={0.2}
+                  ListFooterComponent={
+                    loadingMore ? (
+                      <View style={styles.loadingMoreContainer}>
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
+                      </View>
+                    ) : null
+                  }
+                  ListHeaderComponent={
+                    <View>
+                      <View style={styles.searchFilterContainer}>
+                        <View style={styles.searchFlex}>
+                          <SearchField
+                            placeholder="Search member name, ID..."
+                            value={search}
+                            onChangeText={handleSearchDebounce}
+                          />
+                        </View>
 
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search member name, ID..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
-                        }}
-                      />
+                        <TouchableOpacity
+                          style={styles.filterButton}
+                          activeOpacity={0.8}
+                          onPress={openFilter}
+                        >
+                          <Icon
+                            name="filter-variant"
+                            size={22}
+                            color={colors.white}
+                          />
+                          {hasActiveFilters && (
+                            <View style={styles.filterBadgeDot} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
-
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
+                  }
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
                       <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
+                        name="account-search-outline"
+                        size={40}
+                        color="#9CA3AF"
                       />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon
-                    name="account-search-outline"
-                    size={40}
-                    color="#9CA3AF"
-                  />
-                  <Text style={styles.emptyTitle}>No records found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
+                      <Text style={styles.emptyTitle}>No records found</Text>
+                      <Text style={styles.emptySubtitle}>
+                        Try adjusting your search or filters.
+                      </Text>
+                    </View>
+                  }
+                />
+              </>
+            )}
           </Body>
         </View>
 
@@ -310,11 +406,12 @@ const CollectedByMasterScreen = ({ navigation }) => {
           animationType="slide"
           onRequestClose={() => setFilterOpen(false)}
         >
-          <TouchableOpacity
-            style={styles.overlay}
-            activeOpacity={1}
-            onPress={() => setFilterOpen(false)}
-          >
+          <View style={styles.overlay}>
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => setFilterOpen(false)}
+            />
             <View
               style={styles.filterSheet}
               onStartShouldSetResponder={() => true}
@@ -325,6 +422,14 @@ const CollectedByMasterScreen = ({ navigation }) => {
                   <Icon name="close" size={22} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
+
+              <Label text="Search" />
+              <SearchField
+                placeholder="Search by name..."
+                value={draftSearch}
+                onChangeText={setDraftSearch}
+                style={styles.modalGap}
+              />
 
               <Label text="Member Type" />
               <Dropdown
@@ -356,14 +461,16 @@ const CollectedByMasterScreen = ({ navigation }) => {
                   onPress={applyFilter}
                   style={styles.applyBtn}
                 />
-                <GrayButton
-                  title="Reset"
-                  onPress={handleReset}
-                  style={styles.resetBtn}
-                />
+                {hasActiveFilters && (
+                  <GrayButton
+                    title="Reset"
+                    onPress={handleReset}
+                    style={styles.resetBtn}
+                  />
+                )}
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
       </View>
     </AppLayout>
@@ -384,32 +491,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  topHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  screenDesc: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.regular,
-    color: colors.textSecondary,
+  centerContainer: {
     flex: 1,
-  },
-  exportBtn: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  exportText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.bold,
-    color: '#DC2626',
-    marginLeft: 4,
   },
 
   searchFilterContainer: {
@@ -430,11 +515,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
+  },
+
+  filterBadgeDot: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.white,
   },
 
   listContent: {
     paddingHorizontal: wp('4%'),
-    paddingBottom: 20,
+    paddingBottom: 100,
     paddingTop: 8,
   },
   card: {
@@ -452,15 +550,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
   idText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },
+
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+
+  statusText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+  },
+
   divider: {
     height: 1,
     backgroundColor: colors.neutral.border,
@@ -479,7 +590,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   labelKey: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: FontFamily.medium,
     color: colors.textSecondary,
   },
@@ -489,30 +600,20 @@ const styles = StyleSheet.create({
     color: colors.TitleColor,
   },
   valTextPrimary: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
     color: colors.primary,
   },
   valText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: colors.TitleColor,
   },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  loadingMoreContainer: {
+    paddingVertical: 16,
     justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: 8,
-    paddingVertical: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  actionBtnText: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
+    alignItems: 'center',
   },
 
   emptyContainer: {
@@ -545,6 +646,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     padding: 20,
     paddingBottom: 30,
+    maxHeight: '85%',
   },
   modalHeaderRow: {
     flexDirection: 'row',

@@ -3,20 +3,23 @@
  * No hooks, no extra logic - just functions
  */
 
-import api from './apiConfig';
+import { createAxiosInstance } from './apiConfig';
+const api = createAxiosInstance('');
 
 // ================================================================
 // DESIGNATION
 // ================================================================
 
-export const getDesignations = async (page = 1, limit = 50, search = '') => {
+export const getDesignations = async (page = 1, limit = 50, search = '', isActive = true) => {
   const response = await api.get(
-    `designation?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `designation?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createDesignation = async (data) => {
+export const createDesignation = async data => {
   const response = await api.post('designation', data);
   return response.data;
 };
@@ -26,7 +29,7 @@ export const updateDesignation = async (id, data) => {
   return response.data;
 };
 
-export const deleteDesignation = async (id) => {
+export const deleteDesignation = async id => {
   const response = await api.delete(`designation/${id}`);
   return response.data;
 };
@@ -35,14 +38,16 @@ export const deleteDesignation = async (id) => {
 // TENURE YEAR
 // ================================================================
 
-export const getTenureYears = async (page = 1, limit = 50, search = '') => {
+export const getTenureYears = async (page = 1, limit = 50, search = '', isActive = true) => {
   const response = await api.get(
-    `tenure-year?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `tenure-year?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createTenureYear = async (data) => {
+export const createTenureYear = async data => {
   const response = await api.post('tenure-year', data);
   return response.data;
 };
@@ -52,7 +57,7 @@ export const updateTenureYear = async (id, data) => {
   return response.data;
 };
 
-export const deleteTenureYear = async (id) => {
+export const deleteTenureYear = async id => {
   const response = await api.delete(`tenure-year/${id}`);
   return response.data;
 };
@@ -61,14 +66,18 @@ export const deleteTenureYear = async (id) => {
 // COLLECTED BY (Executive Member)
 // ================================================================
 
-export const getCollectedBy = async (page = 1, limit = 50, search = '') => {
+export const getCollectedBys = async (page = 1, limit = 50, search = '', isActive = true) => {
   const response = await api.get(
-    `executive-member?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `executive-member?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createCollectedBy = async (data) => {
+export const getCollectedBy = getCollectedBys;
+
+export const createCollectedBy = async data => {
   const response = await api.post('executive-member', data);
   return response.data;
 };
@@ -78,7 +87,7 @@ export const updateCollectedBy = async (id, data) => {
   return response.data;
 };
 
-export const deleteCollectedBy = async (id) => {
+export const deleteCollectedBy = async id => {
   const response = await api.delete(`executive-member/${id}`);
   return response.data;
 };
@@ -87,14 +96,16 @@ export const deleteCollectedBy = async (id) => {
 // BANK
 // ================================================================
 
-export const getBanks = async (page = 1, limit = 50, search = '') => {
+export const getBanks = async (page = 1, limit = 50, search = '', isActive = true) => {
   const response = await api.get(
-    `bank?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `bank?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createBank = async (data) => {
+export const createBank = async data => {
   const response = await api.post('bank', data);
   return response.data;
 };
@@ -104,7 +115,7 @@ export const updateBank = async (id, data) => {
   return response.data;
 };
 
-export const deleteBank = async (id) => {
+export const deleteBank = async id => {
   const response = await api.delete(`bank/${id}`);
   return response.data;
 };
@@ -113,14 +124,16 @@ export const deleteBank = async (id) => {
 // FUND TYPE
 // ================================================================
 
-export const getFundTypes = async (page = 1, limit = 50, search = '') => {
+export const getFundTypes = async (page = 1, limit = 50, search = '', isActive = true) => {
   const response = await api.get(
-    `fund-type?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `fund-type?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createFundType = async (data) => {
+export const createFundType = async data => {
   const response = await api.post('fund-type', data);
   return response.data;
 };
@@ -130,7 +143,7 @@ export const updateFundType = async (id, data) => {
   return response.data;
 };
 
-export const deleteFundType = async (id) => {
+export const deleteFundType = async id => {
   const response = await api.delete(`fund-type/${id}`);
   return response.data;
 };
@@ -139,40 +152,49 @@ export const deleteFundType = async (id) => {
 // MODE OF PAYMENT
 // ================================================================
 
-export const getModeOfPayments = async (page = 1, limit = 50, search = '') => {
+export const getPaymentModes = async (page = 1, limit = 50, search = '', isActive = true) => {
   const response = await api.get(
-    `mode-of-payment?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `mode-of-payment?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createModeOfPayment = async (data) => {
+export const getPaymentMode = getPaymentModes;
+
+export const createPaymentMode = async data => {
   const response = await api.post('mode-of-payment', data);
   return response.data;
 };
 
-export const updateModeOfPayment = async (id, data) => {
+export const updatePaymentMode = async (id, data) => {
   const response = await api.put(`mode-of-payment/${id}`, data);
   return response.data;
 };
 
-export const deleteModeOfPayment = async (id) => {
+export const deletePaymentMode = async id => {
   const response = await api.delete(`mode-of-payment/${id}`);
   return response.data;
 };
+
+// Backward compatibility - old name
+export const getModeOfPayments = getPaymentModes;
 
 // ================================================================
 // EXPENSE
 // ================================================================
 
-export const getExpenses = async (page = 1, limit = 50, search = '') => {
+export const getExpenses = async (page = 1, limit = 50, search = '', isActive = true) => {
   const response = await api.get(
-    `expences?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `expences?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createExpense = async (data) => {
+export const createExpense = async data => {
   const response = await api.post('expences', data);
   return response.data;
 };
@@ -182,7 +204,7 @@ export const updateExpense = async (id, data) => {
   return response.data;
 };
 
-export const deleteExpense = async (id) => {
+export const deleteExpense = async id => {
   const response = await api.delete(`expences/${id}`);
   return response.data;
 };
@@ -191,24 +213,33 @@ export const deleteExpense = async (id) => {
 // SCHOLARSHIP DATE
 // ================================================================
 
-export const getScholarshipDates = async (page = 1, limit = 50, search = '') => {
+export const getScholarshipDates = async (
+  page = 1,
+  limit = 50,
+  search = '',
+  isActive = true,
+) => {
   const response = await api.get(
-    `scholarship-date?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `scholarship-date?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createScholarshipDate = async (data) => {
+export const getScholarshipDate = getScholarshipDates;
+
+export const createScholarshipDate = async data => {
   const response = await api.post('scholarship-date', data);
   return response.data;
 };
 
 export const updateScholarshipDate = async (id, data) => {
-  const response = await api.put(`scholarship-date/${id}`, data);
+  const response = await api.patch(`scholarship-date/${id}`, data);
   return response.data;
 };
 
-export const deleteScholarshipDate = async (id) => {
+export const deleteScholarshipDate = async id => {
   const response = await api.delete(`scholarship-date/${id}`);
   return response.data;
 };
@@ -217,14 +248,23 @@ export const deleteScholarshipDate = async (id) => {
 // SCHOLARSHIP RATE
 // ================================================================
 
-export const getScholarshipRates = async (page = 1, limit = 50, search = '') => {
+export const getScholarshipRates = async (
+  page = 1,
+  limit = 50,
+  search = '',
+  isActive = true,
+) => {
   const response = await api.get(
-    `course-with-rates?page=${page}&limit=${limit}&sortBy=recent${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    `course-with-rates?page=${page}&limit=${limit}&sortBy=recent${
+      search ? `&search=${encodeURIComponent(search)}` : ''
+    }${isActive !== undefined ? `&isActive=${isActive}` : ''}`,
   );
   return response.data?.data || {};
 };
 
-export const createScholarshipRate = async (data) => {
+export const getScholarshipRate = getScholarshipRates;
+
+export const createScholarshipRate = async data => {
   const response = await api.post('course-with-rates', data);
   return response.data;
 };
@@ -234,7 +274,7 @@ export const updateScholarshipRate = async (id, data) => {
   return response.data;
 };
 
-export const deleteScholarshipRate = async (id) => {
+export const deleteScholarshipRate = async id => {
   const response = await api.delete(`course-with-rates/${id}`);
   return response.data;
 };

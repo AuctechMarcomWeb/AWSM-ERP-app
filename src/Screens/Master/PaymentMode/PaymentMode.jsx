@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,100 +24,154 @@ import {
   Dropdown,
   GreenButton,
   GrayButton,
-  Badge,
-  shared,
 } from '../../../components/Formparts';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { getPaymentModes, deletePaymentMode } from '../../../api/masters';
+import { useFocusEffect } from '@react-navigation/native';
 
-const STATUS_OPTIONS = ['All Status', 'Active', 'Suspended', 'Expired'];
-
-const PAYMENT_MODES_DATA = [
-  { id: '1', mode: 'UPI', status: 'Active' },
-  { id: '2', mode: 'Cash', status: 'Active' },
-  { id: '3', mode: 'Cheque', status: 'Active' },
-  { id: '4', mode: 'NEFT', status: 'Active' },
-  { id: '5', mode: 'RTGS', status: 'Active' },
-];
-
-const ModeOfPaymentMasterScreen = ({ navigation }) => {
+const PaymentModeMasterScreen = ({ navigation }) => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Applied Filters
-  const [applied, setApplied] = useState({
-    search: '',
-    status: 'Active',
-  });
+  const [applied, setApplied] = useState({ search: '', isActive: true });
+  const [draftIsActive, setDraftIsActive] = useState(true);
 
-  // Draft Filters in Modal
-  const [draftStatus, setDraftStatus] = useState('Active');
+  const loadData = useCallback(
+    async (pageNum = 1, searchTerm = '', isActive = true) => {
+      try {
+        setLoading(true);
 
-  const openFilter = () => {
-    setDraftStatus(applied.status);
-    setFilterOpen(true);
-  };
+        const result = await getPaymentModes(pageNum, 50, searchTerm);
 
-  const applyFilter = () => {
-    setApplied(prev => ({
-      ...prev,
-      status: draftStatus,
-    }));
-    setFilterOpen(false);
-  };
+        const rawList = Array.isArray(result?.data)
+          ? result.data
+          : Array.isArray(result?.paymentModes)
+          ? result.paymentModes
+          : Array.isArray(result?.modesOfPayment)
+          ? result.modesOfPayment
+          : Array.isArray(result?.data?.paymentModes)
+          ? result.data.paymentModes
+          : [];
 
-  const handleReset = () => {
-    setDraftStatus('Active');
-    setSearch('');
-    setApplied({
-      search: '',
-      status: 'Active',
-    });
-  };
+        const filtered = rawList.filter(item => item.isActive === isActive);
 
-  const filteredData = useMemo(() => {
-    const q = applied.search.trim().toLowerCase();
-    return PAYMENT_MODES_DATA.filter(item => {
-      if (applied.status !== 'All Status' && item.status !== applied.status)
-        return false;
+        setData(filtered);
+        setPage(pageNum);
+      } catch (error) {
+        console.error(
+          'Payment Mode Load Error:',
+          error?.response?.data || error,
+        );
 
-      if (q && !item.mode.toLowerCase().includes(q)) {
-        return false;
+        Alert.alert(
+          'Error',
+          error?.response?.data?.message ||
+            error.message ||
+            'Failed to load payment modes',
+        );
+      } finally {
+        setLoading(false);
       }
-      return true;
-    });
-  }, [applied]);
+    },
+    [],
+  );
+
+useFocusEffect(
+  useCallback(() => {
+    loadData(1, applied.search, applied.isActive);
+  }, [loadData, applied.search, applied.isActive]),
+);
+
+  const handleSearch = text => {
+    setSearch(text);
+    setApplied(prev => ({ ...prev, search: text }));
+  };
+
+  const handleDelete = item => {
+    Alert.alert('Delete', `Delete "${item.name}"?`, [
+      { text: 'Cancel' },
+      {
+        text: 'Delete',
+        onPress: async () => {
+          try {
+            const result = await deletePaymentMode(item.id || item._id);
+            if (result?.success || result?.statusCode === 200) {
+              Alert.alert('Success', 'Deleted');
+              loadData(1, applied.search, applied.isActive);
+            } else {
+              Alert.alert('Error', result?.message);
+            }
+          } catch (error) {
+            Alert.alert('Error', error.message);
+          }
+        },
+        style: 'destructive',
+      },
+    ]);
+  };
 
   const renderItem = ({ item, index }) => (
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
-        <Text style={styles.srNo}>#{index + 1}</Text>
-        <Badge text={item.status} />
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.infoGrid}>
-        <View style={styles.infoCol}>
-          <Text style={styles.labelKey}>Mode Of Payment</Text>
-          <Text style={styles.valTextBold}>{item.mode}</Text>
+        <Text style={styles.srNo}>{(page - 1) * 50 + index + 1}</Text>
+        <Text style={styles.nameText}>{item.name}</Text>
+        <View
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 4,
+            backgroundColor: item.isActive ? '#D1FAE5' : '#FEE2E2',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: FontSize.sm,
+              fontFamily: FontFamily.semiBold,
+              color: item.isActive ? '#065F46' : '#991B1B',
+            }}
+          >
+            {item.isActive ? 'Active' : 'Inactive'}
+          </Text>
         </View>
       </View>
-
-      <TouchableOpacity
-        style={styles.actionBtn}
-        activeOpacity={0.8}
-        onPress={() =>
-          Alert.alert('Action', `Manage payment mode: ${item.mode}`)
-        }
-      >
-        <Icon
-          name="pencil-outline"
-          size={16}
-          color={colors.primary}
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.actionBtnText}>Edit / Manage Mode</Text>
-      </TouchableOpacity>
+      <View style={styles.divider} />
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          activeOpacity={0.8}
+          onPress={() =>
+            navigation.navigate('AddPaymentModeScreen', {
+              paymentModeData: item,
+            })
+          }
+        >
+          <Icon
+            name="pencil-outline"
+            size={16}
+            color={colors.primary}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.actionBtnText}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.deleteBtn]}
+          activeOpacity={0.8}
+          onPress={() => handleDelete(item)}
+        >
+          <Icon
+            name="trash-can-outline"
+            size={16}
+            color="#DC2626"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.actionBtnText, { color: '#DC2626' }]}>
+            Delete
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -124,71 +180,82 @@ const ModeOfPaymentMasterScreen = ({ navigation }) => {
       <View style={styles.container}>
         <BackHeader
           navigation={navigation}
-          title="Mode Of Payment Master"
-          onBack={() => navigation && navigation.goBack()}
+          title="Payment Modes"
+          onBack={() => navigation.goBack()}
         />
-
         <View style={styles.body}>
           <Body>
-            <FlatList
-              data={filteredData}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* Search Field & Filter Icon Row */}
-                  <View style={styles.searchFilterContainer}>
-                    <View style={styles.searchFlex}>
-                      <SearchField
-                        placeholder="Search mode..."
-                        value={search}
-                        onChangeText={text => {
-                          setSearch(text);
-                          setApplied(prev => ({ ...prev, search: text }));
+            {loading && data.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <FlatList
+                data={data}
+                keyExtractor={item => item.id || item._id}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={loading}
+                    onRefresh={() =>
+                      loadData(1, applied.search, applied.isActive)
+                    }
+                  />
+                }
+                ListHeaderComponent={
+                  <View>
+                    <View style={styles.searchFilterContainer}>
+                      <View style={styles.searchFlex}>
+                        <SearchField
+                          placeholder="Search payment mode..."
+                          value={search}
+                          onChangeText={handleSearch}
+                        />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.filterButton}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          setDraftIsActive(applied.isActive);
+                          setFilterOpen(true);
                         }}
-                      />
+                      >
+                        <Icon
+                          name="filter-variant"
+                          size={22}
+                          color={colors.white}
+                        />
+                      </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                      style={styles.filterButton}
-                      activeOpacity={0.8}
-                      onPress={openFilter}
-                    >
-                      <Icon
-                        name="filter-variant"
-                        size={22}
-                        color={colors.white}
-                      />
-                    </TouchableOpacity>
                   </View>
-                </View>
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Icon name="credit-card-outline" size={40} color="#9CA3AF" />
-                  <Text style={styles.emptyTitle}>No payment modes found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Try adjusting your search or filters.
-                  </Text>
-                </View>
-              }
-            />
-
-            {/* Bottom Button Bar for Adding New Mode */}
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Icon name="briefcase-outline" size={40} color="#9CA3AF" />
+                    <Text style={styles.emptyTitle}>
+                      No payment modes found
+                    </Text>
+                  </View>
+                }
+                ListFooterComponent={
+                  loading && data.length > 0 ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : null
+                }
+              />
+            )}
             <View style={styles.bottomBar}>
               <GreenButton
-                title="+ Add Mode"
-                icon="plus"
-                onPress={() => navigation.navigate('AddFundTypeScreen')}
+                title="+ Add Payment Mode"
+                onPress={() => navigation.navigate('AddPaymentModeScreen')}
                 style={styles.addButtonBar}
               />
             </View>
           </Body>
         </View>
 
-        {/* Filter Modal */}
         <Modal
           visible={filterOpen}
           transparent
@@ -210,24 +277,29 @@ const ModeOfPaymentMasterScreen = ({ navigation }) => {
                   <Icon name="close" size={22} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-
               <Label text="Status" />
               <Dropdown
-                value={draftStatus}
-                options={STATUS_OPTIONS}
-                onSelect={setDraftStatus}
+                value={draftIsActive ? 'Active' : 'Inactive'}
+                options={['Active', 'Inactive']}
+                onSelect={val => setDraftIsActive(val === 'Active')}
                 style={styles.modalGap}
               />
-
               <View style={styles.actionRow}>
                 <GreenButton
                   title="Apply"
-                  onPress={applyFilter}
+                  onPress={() => {
+                    setApplied(prev => ({ ...prev, isActive: draftIsActive }));
+                    setFilterOpen(false);
+                  }}
                   style={styles.applyBtn}
                 />
                 <GrayButton
                   title="Reset"
-                  onPress={handleReset}
+                  onPress={() => {
+                    setSearch('');
+                    setDraftIsActive(true);
+                    setApplied({ search: '', isActive: true });
+                  }}
                   style={styles.resetBtn}
                 />
               </View>
@@ -252,66 +324,19 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
     overflow: 'hidden',
   },
-
-  topHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  screenDesc: {
-    fontSize: FontSize.xs,
-    fontFamily: FontFamily.regular,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  topActionBtns: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  exportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  exportText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: '#DC2626',
-    marginLeft: 3,
-  },
-  orderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  orderText: {
-    fontSize: 10,
-    fontFamily: FontFamily.bold,
-    color: colors.primary,
-    marginLeft: 3,
-  },
-
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
     marginTop: 25,
+    marginBottom: 14,
   },
+
   searchFlex: {
     flex: 1,
     marginRight: 8,
   },
+
   filterButton: {
     width: 48,
     height: 48,
@@ -320,18 +345,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
+    position: 'relative',
   },
-
   listContent: {
     paddingHorizontal: wp('4%'),
     paddingBottom: 20,
     paddingTop: 8,
   },
   card: {
-    backgroundColor: colors.cardColorLight,
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: colors.neutral.border,
-    borderRadius: 12,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
     padding: 12,
     marginBottom: 12,
   },
@@ -342,81 +367,55 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   srNo: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.neutral.border,
-    marginBottom: 8,
-  },
-  infoGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  infoCol: {
-    flex: 1,
-  },
-  labelKey: {
-    fontSize: 10,
-    fontFamily: FontFamily.medium,
-    color: colors.textSecondary,
-  },
-  valTextBold: {
+  nameText: {
     fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
+    fontFamily: FontFamily.semiBold,
     color: colors.TitleColor,
+    flex: 1,
+    marginLeft: 8,
   },
+  divider: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 8 },
+  actionContainer: { flexDirection: 'row', gap: 8 },
   actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primaryLight,
     borderRadius: 8,
     paddingVertical: 8,
-    marginTop: 8,
     borderWidth: 1,
     borderColor: '#C6F6D5',
   },
+  deleteBtn: { backgroundColor: '#FEE2E2', borderColor: '#FECACA' },
   actionBtnText: {
-    fontSize: FontSize.xs,
+    fontSize: FontSize.sm,
     fontFamily: FontFamily.bold,
     color: colors.primary,
   },
-
   bottomBar: {
     paddingHorizontal: wp('4%'),
     paddingVertical: 12,
     backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral.border,
+    borderTopColor: '#E5E7EB',
   },
-  addButtonBar: {
-    height: 48,
-    width: '100%',
-  },
-
+  addButtonBar: { height: 48 },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
   },
   emptyTitle: {
-    fontSize: FontSize.lg,
-    fontFamily: FontFamily.bold,
-    color: '#1F2937',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  emptySubtitle: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.regular,
     color: '#6B7280',
-    textAlign: 'center',
+    marginTop: 8,
   },
-
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -440,22 +439,10 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     color: colors.TitleColor,
   },
-  modalGap: {
-    marginBottom: 12,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-  },
-  applyBtn: {
-    flex: 1,
-    marginRight: 8,
-    height: 48,
-  },
-  resetBtn: {
-    flex: 1,
-    height: 48,
-  },
+  modalGap: { marginBottom: 12 },
+  actionRow: { flexDirection: 'row', marginTop: 16 },
+  applyBtn: { flex: 1, marginRight: 8, height: 48 },
+  resetBtn: { flex: 1, height: 48 },
 });
 
-export default ModeOfPaymentMasterScreen;
+export default PaymentModeMasterScreen;
