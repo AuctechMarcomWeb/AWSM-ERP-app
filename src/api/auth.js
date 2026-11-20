@@ -120,3 +120,90 @@ export const updateProfile = async userData => {
     };
   }
 };
+
+/**
+ * Update user by ID (Full Profile Update)
+ * @param {string} userId - User ID
+ * @param {object} userData - Updated user data
+ * Returns: { success, user, message }
+ */
+export const updateUserById = async (userId, userData) => {
+  try {
+    const response = await authApi.patch(`/update/${userId}`, userData);
+
+    if (response.data.success) {
+      return {
+        success: true,
+        user: response.data.data || response.data.result,
+        message: response.data.message,
+      };
+    }
+    return { success: false, message: response.data.message };
+  } catch (error) {
+    console.error('Update user error:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+};
+
+/**
+ * Update Password
+ * @param {string} userId - User ID
+ * @param {string} currentPassword - Current password
+ * @param {string} newPassword - New password
+ * Returns: { success, message }
+ */
+export const updatePassword = async (userId, currentPassword, newPassword) => {
+  try {
+    const response = await authApi.post('/updatePassword', {
+      userId,
+      currentPassword,
+      newPassword,
+    });
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'Password updated successfully',
+      };
+    }
+    return { success: false, message: response.data.message };
+  } catch (error) {
+    console.error('Update password error:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+};
+
+/**
+ * Create Password (for users without password)
+ * @param {string} userId - User ID
+ * @param {string} password - New password
+ * Returns: { success, message }
+ */
+export const createPassword = async (userId, password) => {
+  try {
+    const response = await authApi.post('/createPassword', {
+      userId,
+      password,
+    });
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'Password created successfully',
+      };
+    }
+    return { success: false, message: response.data.message };
+  } catch (error) {
+    console.error('Create password error:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+};

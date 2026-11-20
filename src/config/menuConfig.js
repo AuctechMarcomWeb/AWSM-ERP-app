@@ -60,6 +60,7 @@ export const MENU_CONFIG = {
       'collection_payment_list',
       'collection_farde_hisaab_reports',
       'collection_farde_hisaab',
+      'collection_income_expenditure_summary',
     ],
     subs: [
       {
@@ -103,6 +104,12 @@ export const MENU_CONFIG = {
         module: 'collection_farde_hisaab_reports',
         icon: 'file-chart',
         screenName: 'FardeHisaab',
+      },
+      {
+        key: 'IncomeExpenditureSummary',
+        module: 'collection_income_expenditure_summary',
+        icon: 'chart-box',
+        screenName: 'IncomeExpenditure',
       },
     ],
   },

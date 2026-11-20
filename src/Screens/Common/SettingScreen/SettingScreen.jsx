@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 import {
@@ -43,7 +42,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
   };
 
   // Open Under Development Screen
-  const openUnderDevelopment = (title) => {
+  const openUnderDevelopment = title => {
     navigation.navigate('UnderDevelopmentScreen', {
       title: title,
       description: `${title} feature is currently under development. It will be available soon.`,
@@ -74,12 +73,8 @@ const SettingsScreen = ({ navigation, onLogout }) => {
 
               // Optional callback
               onLogout?.();
-
             } catch (error) {
-              Alert.alert(
-                'Error',
-                'Failed to logout. Please try again.',
-              );
+              Alert.alert('Error', 'Failed to logout. Please try again.');
             }
           },
         },
@@ -88,13 +83,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
   };
 
   // Reusable Setting Row
-  const SettingRow = ({
-    icon,
-    title,
-    subtitle,
-    onPress,
-    danger = false,
-  }) => {
+  const SettingRow = ({ icon, title, subtitle, onPress, danger = false }) => {
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -142,11 +131,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
   return (
     <AppLayout>
       <View style={styles.container}>
-
-        <BackHeader
-          navigation={navigation}
-          title="Settings"
-        />
+        <BackHeader navigation={navigation} title="Settings" />
 
         <ScrollView
           style={styles.scrollView}
@@ -155,13 +140,12 @@ const SettingsScreen = ({ navigation, onLogout }) => {
           bounces={false}
           keyboardShouldPersistTaps="handled"
         >
-
           {/* Profile Card */}
-   <TouchableOpacity
-  activeOpacity={0.8}
-  style={styles.profileCard}
-  onPress={() => navigation.navigate('ProfileScreen')}
->
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.profileCard}
+            onPress={() => navigation.navigate('ProfileScreen')}
+          >
             <View style={styles.profileIcon}>
               <MaterialCommunityIcons
                 name="account-circle"
@@ -179,9 +163,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
                 {email}
               </Text>
 
-              <Text style={styles.profileStatus}>
-                Member Account
-              </Text>
+              <Text style={styles.profileStatus}>Member Account</Text>
             </View>
 
             <MaterialCommunityIcons
@@ -192,33 +174,30 @@ const SettingsScreen = ({ navigation, onLogout }) => {
           </TouchableOpacity>
 
           {/* Account Settings */}
-          <SectionTitle title="ACCOUNT SETTINGS" />
+          {/* <SectionTitle title="ACCOUNT SETTINGS" /> */}
 
           <View style={styles.sectionCard}>
-
-            <SettingRow
+            {/* <SettingRow
               icon="account-edit-outline"
               title="Edit Profile"
               subtitle="Update your personal information"
               onPress={() => openUnderDevelopment('Edit Profile')}
-            />
+            /> */}
 
             <View style={styles.divider} />
 
-            <SettingRow
+            {/* <SettingRow
               icon="lock-outline"
               title="Change Password"
               subtitle="Change your account password"
               onPress={() => openUnderDevelopment('Change Password')}
-            />
-
+            /> */}
           </View>
 
           {/* Privacy & Security */}
           <SectionTitle title="PRIVACY & SECURITY" />
 
           <View style={styles.sectionCard}>
-
             <SettingRow
               icon="shield-lock-outline"
               title="Privacy Policy"
@@ -234,14 +213,12 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               subtitle="Read terms of service"
               onPress={() => openUnderDevelopment('Terms & Conditions')}
             />
-
           </View>
 
           {/* Support */}
           <SectionTitle title="SUPPORT" />
 
           <View style={styles.sectionCard}>
-
             <SettingRow
               icon="help-circle-outline"
               title="Help & Support"
@@ -257,7 +234,6 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               subtitle="Application information"
               onPress={() => openUnderDevelopment('About App')}
             />
-
           </View>
 
           {/* Logout */}
@@ -274,9 +250,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               />
             </View>
 
-            <Text style={styles.logoutText}>
-              Logout
-            </Text>
+            <Text style={styles.logoutText}>Logout</Text>
 
             <MaterialCommunityIcons
               name="chevron-right"
@@ -287,27 +261,16 @@ const SettingsScreen = ({ navigation, onLogout }) => {
 
           {/* App Version */}
           <View style={styles.footer}>
-            <Text style={styles.footerTitle}>
-              AWSM Member App
-            </Text>
+            <Text style={styles.footerTitle}>AWSM Member App</Text>
 
-            <Text style={styles.version}>
-              Version 1.0.0
-            </Text>
+            <Text style={styles.version}>Version 1.0.0</Text>
 
-            <Text style={styles.copyright}>
-              Made with care for our members
-            </Text>
+            <Text style={styles.copyright}>Made with care for our members</Text>
           </View>
-
         </ScrollView>
       </View>
 
-      <BottomNav
-        active="SettingScreen"
-        onPress={handleTabPress}
-      />
-
+      <BottomNav active="SettingScreen" onPress={handleTabPress} />
     </AppLayout>
   );
 };
@@ -316,7 +279,6 @@ export default SettingsScreen;
 
 // Styles
 const styles = StyleSheet.create({
-
   // Main Container
   container: {
     flex: 1,
@@ -527,5 +489,4 @@ const styles = StyleSheet.create({
     color: '#999999',
     marginTop: hp('0.5%'),
   },
-
 });

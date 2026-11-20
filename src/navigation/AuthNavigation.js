@@ -39,7 +39,7 @@ import PaymentListScreen from '../Screens/Common/Collection/Paymentlistscreen/Pa
 import FardeHisaabScreen from '../Screens/Common/Collection/Fardehisaabscreen/Fardehisaabscreen';
 import Addfardehisaabscreen from '../Screens/Common/Collection/Fardehisaabscreen/Addfardehisaabscreen';
 import IncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fardehisaabscreen/IncomeExpenditureSummaryScreen/IncomeExpenditureSummaryScreen';
-import AddIncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fardehisaabscreen/IncomeExpenditureSummaryScreen/AddIncomeExpenditureSummaryScreen';
+import AddIncomeExpenditureSummaryScreen from '../Screens/Common/Collection/Fardehisaabscreen/IncomeExpenditureSummaryScreen/IncomeExpenditureModal';
 import PostsScreen from '../Screens/Common/PostsScreen/MainScreen/MainScreen';
 import WazifaApplicationsScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationsScreen/WazifaApplicationsScreen';
 import WazifaApplicationSubmittedScreen from '../Screens/Common/Wafizedar/WazifaApplicationsScreen/WazifaApplicationSubmittedScreen/WazifaApplicationSubmittedScreen';
@@ -53,6 +53,7 @@ import MembershipScreen from '../Screens/Common/MembersList/MembershipScreen/Mem
 import AddMembershipApplicationScreen from '../Screens/Common/MembersList/MembershipScreen/AddMembershipApplicationScreen';
 import UserManagementScreen from '../Screens/Common/UserManagementScreen/UserManagementScreen';
 import AddUserScreen from '../Screens/Common/UserManagementScreen/AddUserScreen';
+// import AddStaffScreen from '../Screens/Common/UserManagementScreen/UserManagementScreen';
 import MembershipListScreen from '../Screens/Common/MembersList/MembersListScreen/MemberListScreen';
 import OfficeBearerMasterScreen from '../Screens/Common/OrganizationStructure/OfficeBearerMasterScreen/OfficeBearerMasterScreen';
 import AddOfficeBearerScreen from '../Screens/Common/OrganizationStructure/OfficeBearerMasterScreen/AddOfficeBearerScreen';
@@ -929,6 +930,7 @@ const AuthNavigation = () => {
         component={UserManagementScreen}
       />
       <Stack.Screen name="AddUserScreen" component={AddUserScreen} />
+      {/* <Stack.Screen name="AddStaffScreen" component={AddStaffScreen} /> */}
       <Stack.Screen
         name="UserAccessManagementScreen"
         component={UserAccessManagementScreen}

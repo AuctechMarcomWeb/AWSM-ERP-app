@@ -9,9 +9,10 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Modal,
 } from 'react-native';
 
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -27,15 +28,27 @@ import Colors from '../../../themes/colors';
 import { FontFamily, FontSize } from '../../../themes/typography';
 import BottomNav from '../../../components/BottomNav/BottomNav';
 
+import { updateUserById, updatePassword, getProfile } from '../../../api/auth';
+import { setUser } from '../../../redux/slice/userSlice';
+
 const EditProfileScreen = ({ navigation, onSave }) => {
-  const { loginData, profile, associateDetails } = useSelector(
+  const { loginData, profile, associateDetails, _id } = useSelector(
     state => state.user,
   );
+  const dispatch = useDispatch();
+
   const handleTabPress = key => {
     if (key === 'Posts') return;
     navigation?.navigate(key);
   };
   const [loading, setLoading] = useState(false);
+  const [changePasswordModal, setChangePasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [form, setForm] = useState({
     FullName: '',
@@ -45,38 +58,82 @@ const EditProfileScreen = ({ navigation, onSave }) => {
     Designation: '',
   });
 
+  const [fetchingProfile, setFetchingProfile] = useState(true);
+
+  // Fetch latest profile data on screen load
   useEffect(() => {
-    setForm({
-      FullName:
-        profile?.FullName ||
-        associateDetails?.FullName ||
-        loginData?.Name ||
-        '',
+    const loadProfileData = async () => {
+      try {
+        setFetchingProfile(true);
+        const result = await getProfile();
 
-      Email:
-        profile?.Email || associateDetails?.Email || loginData?.Email || '',
+        if (result.success && result.user) {
+          const userData = result.user;
+          setForm({
+            FullName: userData.FullName || userData.name || '',
+            Email: userData.Email || userData.email || '',
+            MobileNo:
+              userData.MobileNo || userData.Phone || userData.phone || '',
+            Address: userData.Address || userData.address || '',
+            Designation: userData.Designation || userData.designation || '',
+          });
 
-      MobileNo:
-        profile?.MobileNo ||
-        profile?.Phone ||
-        associateDetails?.MobileNo ||
-        loginData?.MobileNo ||
-        loginData?.Phone ||
-        '',
+          // Also update Redux store with fresh data
+          dispatch(setUser(userData));
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        // Fallback to Redux data if API fails
+        setForm({
+          FullName:
+            profile?.FullName ||
+            associateDetails?.FullName ||
+            loginData?.Name ||
+            '',
 
-      Address:
-        profile?.Address ||
-        associateDetails?.Address ||
-        loginData?.Address ||
-        '',
+          Email:
+            profile?.Email || associateDetails?.Email || loginData?.Email || '',
 
-      Designation:
-        associateDetails?.Designation ||
-        profile?.Designation ||
-        loginData?.Designation ||
-        '',
-    });
-  }, [profile, associateDetails, loginData]);
+          MobileNo:
+            profile?.MobileNo ||
+            profile?.Phone ||
+            associateDetails?.MobileNo ||
+            loginData?.MobileNo ||
+            loginData?.Phone ||
+            '',
+
+          Address:
+            profile?.Address ||
+            associateDetails?.Address ||
+            loginData?.Address ||
+            '',
+
+          Designation:
+            associateDetails?.Designation ||
+            profile?.Designation ||
+            loginData?.Designation ||
+            '',
+        });
+      } finally {
+        setFetchingProfile(false);
+      }
+    };
+
+    loadProfileData();
+  }, []);
+
+  // Fallback: Update from Redux if Redux data changes
+  useEffect(() => {
+    if (!fetchingProfile && profile) {
+      setForm(prev => ({
+        FullName: prev.FullName || profile?.FullName || '',
+        Email: prev.Email || profile?.Email || '',
+        MobileNo: prev.MobileNo || profile?.MobileNo || '',
+        Address: prev.Address || profile?.Address || '',
+        Designation: prev.Designation || profile?.Designation || '',
+      }));
+    }
+  }, [profile, fetchingProfile]);
 
   const updateField = (key, value) => {
     setForm(previous => ({
@@ -116,35 +173,106 @@ const EditProfileScreen = ({ navigation, onSave }) => {
   const handleSave = async () => {
     if (!validateForm()) return;
 
-    if (!onSave) {
-      Alert.alert(
-        'API Required',
-        'Connect your profile update API through the onSave prop to save these changes.',
-      );
-      return;
-    }
-
     try {
       setLoading(true);
 
-      await onSave({
+      const userData = {
         FullName: form.FullName.trim(),
         Email: form.Email.trim(),
         MobileNo: form.MobileNo.trim(),
         Address: form.Address.trim(),
         Designation: form.Designation.trim(),
-      });
+      };
 
-      Alert.alert('Success', 'Your profile has been updated successfully.', [
-        {
-          text: 'OK',
-          onPress: () => navigation?.goBack(),
-        },
-      ]);
+      const result = await updateUserById(_id, userData);
+
+      if (result.success) {
+        // Update Redux store with new user data
+        dispatch(
+          setUser({
+            ...profile,
+            ...userData,
+          }),
+        );
+
+        Alert.alert('Success', 'Your profile has been updated successfully.', [
+          {
+            text: 'OK',
+            onPress: () => navigation?.goBack(),
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to update profile');
+      }
     } catch (error) {
       Alert.alert('Error', error?.message || 'Unable to update your profile.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setFromDate('');
+    setToDate('');
+    setStatusFilter('All Status');
+    setAppliedFromDate('');
+    setAppliedToDate('');
+    setAppliedStatus('All Status');
+    setFilterModalOpen(false);
+  };
+
+  // Password Change Handler
+  const handleChangePassword = async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+
+    if (!currentPassword.trim()) {
+      Alert.alert('Validation', 'Please enter your current password');
+      return;
+    }
+
+    if (!newPassword.trim()) {
+      Alert.alert('Validation', 'Please enter your new password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Validation', 'Password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert(
+        'Validation',
+        'New password and confirm password do not match',
+      );
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      const result = await updatePassword(_id, currentPassword, newPassword);
+
+      if (result.success) {
+        Alert.alert('Success', 'Password changed successfully', [
+          {
+            text: 'OK',
+            onPress: () => {
+              setChangePasswordModal(false);
+              setPasswordForm({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+              });
+            },
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to change password');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to change password');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -224,6 +352,21 @@ const EditProfileScreen = ({ navigation, onSave }) => {
     <AppLayout>
       <View style={styles.container}>
         <BackHeader navigation={navigation} title="Edit Profile" />
+
+        {/* Loading Indicator */}
+        {fetchingProfile && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingCard}>
+              <MaterialCommunityIcons
+                name="loading"
+                size={40}
+                color={Colors.primary}
+                style={styles.loadingIcon}
+              />
+              <Text style={styles.loadingText}>Loading your profile...</Text>
+            </View>
+          </View>
+        )}
 
         <ScrollView
           style={styles.scrollView}
@@ -339,6 +482,21 @@ const EditProfileScreen = ({ navigation, onSave }) => {
             </Text>
           </TouchableOpacity>
 
+          {/* Change Password Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.changePasswordButton]}
+            onPress={() => setChangePasswordModal(true)}
+          >
+            <MaterialCommunityIcons
+              name="lock-reset"
+              size={21}
+              color={Colors.white}
+            />
+
+            <Text style={styles.changePasswordButtonText}>Change Password</Text>
+          </TouchableOpacity>
+
           {/* Cancel Button */}
           <TouchableOpacity
             activeOpacity={0.7}
@@ -350,6 +508,141 @@ const EditProfileScreen = ({ navigation, onSave }) => {
 
           <View style={styles.footer}></View>
         </ScrollView>
+
+        {/* Change Password Modal */}
+        <Modal
+          visible={changePasswordModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setChangePasswordModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setChangePasswordModal(false)}
+          >
+            <View
+              style={styles.passwordModalContent}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.passwordModalHeader}>
+                <Text style={styles.passwordModalTitle}>Change Password</Text>
+                <TouchableOpacity onPress={() => setChangePasswordModal(false)}>
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={Colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.passwordFormCard}>
+                {/* Current Password */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Current Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <MaterialCommunityIcons
+                      name="lock-outline"
+                      size={21}
+                      color={Colors.primary}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={passwordForm.currentPassword}
+                      onChangeText={text =>
+                        setPasswordForm(prev => ({
+                          ...prev,
+                          currentPassword: text,
+                        }))
+                      }
+                      placeholder="Enter current password"
+                      placeholderTextColor={Colors.placeHolderColor}
+                      secureTextEntry
+                    />
+                  </View>
+                </View>
+
+                {/* New Password */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>New Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <MaterialCommunityIcons
+                      name="lock-outline"
+                      size={21}
+                      color={Colors.primary}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={passwordForm.newPassword}
+                      onChangeText={text =>
+                        setPasswordForm(prev => ({
+                          ...prev,
+                          newPassword: text,
+                        }))
+                      }
+                      placeholder="Enter new password"
+                      placeholderTextColor={Colors.placeHolderColor}
+                      secureTextEntry
+                    />
+                  </View>
+                </View>
+
+                {/* Confirm Password */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Confirm Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <MaterialCommunityIcons
+                      name="lock-outline"
+                      size={21}
+                      color={Colors.primary}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={passwordForm.confirmPassword}
+                      onChangeText={text =>
+                        setPasswordForm(prev => ({
+                          ...prev,
+                          confirmPassword: text,
+                        }))
+                      }
+                      placeholder="Confirm new password"
+                      placeholderTextColor={Colors.placeHolderColor}
+                      secureTextEntry
+                    />
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.passwordModalActions}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={[
+                      styles.passwordUpdateButton,
+                      passwordLoading && styles.disabledButton,
+                    ]}
+                    onPress={handleChangePassword}
+                    disabled={passwordLoading}
+                  >
+                    <Text style={styles.passwordUpdateButtonText}>
+                      {passwordLoading ? 'Updating...' : 'Update Password'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={styles.passwordCancelButton}
+                    onPress={() => setChangePasswordModal(false)}
+                  >
+                    <Text style={styles.passwordCancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
       <BottomNav active="Posts" onPress={handleTabPress} />
     </AppLayout>
@@ -547,6 +840,32 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
 
+  changePasswordButton: {
+    width: '100%',
+    minHeight: hp('6.5%'),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.secondary,
+    borderRadius: wp('3%'),
+    gap: wp('2%'),
+    marginTop: hp('1%'),
+    elevation: 2,
+    shadowColor: Colors.secondary,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+  },
+
+  changePasswordButtonText: {
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.semiBold,
+    color: Colors.white,
+  },
+
   disabledButton: {
     opacity: 0.6,
   },
@@ -574,5 +893,130 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     fontFamily: FontFamily.medium,
     color: Colors.textMuted,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+
+  passwordModalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: wp('5%'),
+    borderTopRightRadius: wp('5%'),
+    paddingHorizontal: wp('4%'),
+    paddingTop: hp('2%'),
+    paddingBottom: hp('3%'),
+    maxHeight: '80%',
+  },
+
+  passwordModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: hp('2%'),
+    paddingBottom: hp('1.5%'),
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral.border,
+  },
+
+  passwordModalTitle: {
+    fontSize: FontSize.lg,
+    fontFamily: FontFamily.bold,
+    color: Colors.TitleColor,
+  },
+
+  passwordFormCard: {
+    backgroundColor: Colors.primaryBg,
+    borderRadius: wp('3%'),
+    padding: wp('4%'),
+    marginBottom: hp('2%'),
+  },
+
+  passwordModalActions: {
+    marginTop: hp('2%'),
+    gap: wp('2%'),
+  },
+
+  passwordUpdateButton: {
+    width: '100%',
+    minHeight: hp('6%'),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.success,
+    borderRadius: wp('3%'),
+    elevation: 2,
+    shadowColor: Colors.success,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+  },
+
+  passwordUpdateButtonText: {
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.semiBold,
+    color: Colors.white,
+  },
+
+  passwordCancelButton: {
+    width: '100%',
+    minHeight: hp('5.8%'),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: wp('3%'),
+    borderWidth: 1,
+    borderColor: Colors.neutral.border,
+  },
+
+  passwordCancelButtonText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.semiBold,
+    color: Colors.secondary,
+  },
+
+  // Loading Overlay Styles
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+
+  loadingCard: {
+    backgroundColor: Colors.white,
+    borderRadius: wp('4%'),
+    paddingVertical: hp('3%'),
+    paddingHorizontal: wp('6%'),
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+  },
+
+  loadingIcon: {
+    marginBottom: hp('1.5%'),
+  },
+
+  loadingText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.medium,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 });

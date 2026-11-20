@@ -9,14 +9,14 @@ export const getExecutiveMembers = async () => {
   try {
     const response = await api.get('executive-member?isPagination=false');
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.members) {
       return {
         success: true,
         members: data.data.members,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch executive members',
@@ -35,16 +35,18 @@ export const getExecutiveMembers = async () => {
 // ============================================================
 export const getOfficeBearers = async () => {
   try {
-    const response = await api.get('office-bearer?isPagination=false&sortBy=recent');
+    const response = await api.get(
+      'office-bearer?isPagination=false&sortBy=recent',
+    );
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.bearers) {
       return {
         success: true,
         bearers: data.data.bearers,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch office bearers',
@@ -65,14 +67,14 @@ export const getLocalSecretaries = async () => {
   try {
     const response = await api.get('local-secretary?isPagination=false');
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.members) {
       return {
         success: true,
         members: data.data.members,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch local secretaries',
@@ -91,16 +93,18 @@ export const getLocalSecretaries = async () => {
 // ============================================================
 export const getFundTypes = async () => {
   try {
-    const response = await api.get('fund-type?isActive=true&isPagination=false');
+    const response = await api.get(
+      'fund-type?isActive=true&isPagination=false',
+    );
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.fundTypes) {
       return {
         success: true,
         fundTypes: data.data.fundTypes,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch fund types',
@@ -119,16 +123,18 @@ export const getFundTypes = async () => {
 // ============================================================
 export const getPaymentModes = async () => {
   try {
-    const response = await api.get('mode-of-payment?isActive=true&isPagination=false');
+    const response = await api.get(
+      'mode-of-payment?isActive=true&isPagination=false',
+    );
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.data) {
       return {
         success: true,
         paymentModes: data.data.data,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch payment modes',
@@ -149,14 +155,15 @@ export const getMembers = async (params = {}) => {
   try {
     const queryString = new URLSearchParams({
       sortBy: params.sortBy || 'recent',
-      isPagination: params.isPagination !== undefined ? params.isPagination : false,
+      isPagination:
+        params.isPagination !== undefined ? params.isPagination : false,
       page: params.page || 1,
       limit: params.limit || 50,
     }).toString();
-    
+
     const response = await api.get(`membership?${queryString}`);
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.members) {
       return {
         success: true,
@@ -164,7 +171,7 @@ export const getMembers = async (params = {}) => {
         stats: data.data.stats || {},
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch members',
@@ -181,14 +188,14 @@ export const getMembers = async (params = {}) => {
 // ============================================================
 // 7. CREATE PAYMENT ENTRY (Main Collection API)
 // ============================================================
-export const createPaymentEntry = async (payload) => {
+export const createPaymentEntry = async payload => {
   try {
     console.log('📤 Creating payment entry...');
     console.log('Payload:', JSON.stringify(payload, null, 2));
-    
+
     const response = await api.post('payment-entry', payload);
     const data = response.data;
-    
+
     if (data.statusCode === 201 || data.statusCode === 200) {
       console.log('✅ Payment entry created successfully');
       return {
@@ -197,7 +204,7 @@ export const createPaymentEntry = async (payload) => {
         data: data.data,
       };
     }
-    
+
     return {
       success: false,
       message: data.message || 'Failed to create payment entry',
@@ -206,7 +213,10 @@ export const createPaymentEntry = async (payload) => {
     console.error('❌ Error creating payment entry:', error);
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'Failed to create payment entry',
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to create payment entry',
     };
   }
 };
@@ -220,17 +230,18 @@ export const fetchPayments = async (filters = {}) => {
       page: filters.page || 1,
       limit: filters.limit || 10,
       sortBy: filters.sortBy || 'recent',
-      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      isPagination:
+        filters.isPagination !== undefined ? filters.isPagination : true,
       ...(filters.collectedBy && { collectedBy: filters.collectedBy }),
       ...(filters.paymentMode && { paymentMode: filters.paymentMode }),
       ...(filters.fromDate && { fromDate: filters.fromDate }),
       ...(filters.toDate && { toDate: filters.toDate }),
       ...(filters.memberCode && { memberCode: filters.memberCode }),
     }).toString();
-    
+
     const response = await api.get(`payment-entry?${queryString}`);
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.payments) {
       return {
         success: true,
@@ -240,7 +251,7 @@ export const fetchPayments = async (filters = {}) => {
         totalAmount: data.data.totalAmount || 0,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch payments',
@@ -257,18 +268,18 @@ export const fetchPayments = async (filters = {}) => {
 // ============================================================
 // 9. GET SINGLE PAYMENT ENTRY
 // ============================================================
-export const getPaymentEntry = async (paymentId) => {
+export const getPaymentEntry = async paymentId => {
   try {
     const response = await api.get(`payment-entry/${paymentId}`);
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data) {
       return {
         success: true,
         payment: data.data,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch payment entry',
@@ -288,10 +299,10 @@ export const getPaymentEntry = async (paymentId) => {
 export const updatePaymentEntry = async (paymentId, payload) => {
   try {
     console.log('📝 Updating payment entry...');
-    
+
     const response = await api.put(`payment-entry/${paymentId}`, payload);
     const data = response.data;
-    
+
     if (data.statusCode === 200) {
       console.log('✅ Payment entry updated successfully');
       return {
@@ -300,7 +311,7 @@ export const updatePaymentEntry = async (paymentId, payload) => {
         data: data.data,
       };
     }
-    
+
     return {
       success: false,
       message: data.message || 'Failed to update payment entry',
@@ -309,7 +320,10 @@ export const updatePaymentEntry = async (paymentId, payload) => {
     console.error('❌ Error updating payment entry:', error);
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'Failed to update payment entry',
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to update payment entry',
     };
   }
 };
@@ -317,13 +331,13 @@ export const updatePaymentEntry = async (paymentId, payload) => {
 // ============================================================
 // 11. DELETE PAYMENT ENTRY
 // ============================================================
-export const deletePaymentEntry = async (paymentId) => {
+export const deletePaymentEntry = async paymentId => {
   try {
     console.log('🗑️ Deleting payment entry...');
-    
+
     const response = await api.delete(`payment-entry/${paymentId}`);
     const data = response.data;
-    
+
     if (data.statusCode === 200) {
       console.log('✅ Payment entry deleted successfully');
       return {
@@ -331,7 +345,7 @@ export const deletePaymentEntry = async (paymentId) => {
         message: 'Payment deleted successfully',
       };
     }
-    
+
     return {
       success: false,
       message: data.message || 'Failed to delete payment entry',
@@ -340,7 +354,10 @@ export const deletePaymentEntry = async (paymentId) => {
     console.error('❌ Error deleting payment entry:', error);
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'Failed to delete payment entry',
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to delete payment entry',
     };
   }
 };
@@ -348,17 +365,17 @@ export const deletePaymentEntry = async (paymentId) => {
 // ============================================================
 // 12. UPLOAD PAYMENT RECEIPT / DOCUMENT
 // ============================================================
-export const uploadPaymentDocument = async (formData) => {
+export const uploadPaymentDocument = async formData => {
   try {
     console.log('📤 Uploading payment document...');
-    
+
     const response = await api.post('payment-entry/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
     const data = response.data;
-    
+
     if (data.statusCode === 200 || data.statusCode === 201) {
       console.log('✅ Document uploaded successfully');
       return {
@@ -366,7 +383,7 @@ export const uploadPaymentDocument = async (formData) => {
         documentUrl: data.data?.documentUrl || data.data?.url,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to upload document',
@@ -391,17 +408,17 @@ export const getCollectionReport = async (filters = {}) => {
       collectedBy: filters.collectedBy || '',
       paymentMode: filters.paymentMode || '',
     }).toString();
-    
+
     const response = await api.get(`payment-entry/report?${queryString}`);
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data) {
       return {
         success: true,
         report: data.data,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch collection report',
@@ -421,7 +438,7 @@ export const getCollectionReport = async (filters = {}) => {
 export const fetchCollectionReportData = async (filters = {}) => {
   try {
     console.log('📊 Fetching collection report data...');
-    
+
     const queryParams = {
       page: filters.page || 1,
       limit: filters.limit || 10,
@@ -432,9 +449,11 @@ export const fetchCollectionReportData = async (filters = {}) => {
     };
 
     const queryString = new URLSearchParams(queryParams).toString();
-    const response = await api.get(`payment-entry/collection-report?${queryString}`);
+    const response = await api.get(
+      `payment-entry/collection-report?${queryString}`,
+    );
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data) {
       console.log('✅ Collection report fetched successfully');
       return {
@@ -448,7 +467,7 @@ export const fetchCollectionReportData = async (filters = {}) => {
         total: data.data?.total || 0,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch collection report',
@@ -477,18 +496,20 @@ export const fetchCollectionReportData = async (filters = {}) => {
 // ============================================================
 // 14. SEARCH MEMBERS BY NAME OR CODE
 // ============================================================
-export const searchMembers = async (searchTerm) => {
+export const searchMembers = async searchTerm => {
   try {
-    const response = await api.get(`membership/search?q=${encodeURIComponent(searchTerm)}`);
+    const response = await api.get(
+      `membership/search?q=${encodeURIComponent(searchTerm)}`,
+    );
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.members) {
       return {
         success: true,
         members: data.data.members,
       };
     }
-    
+
     return {
       success: false,
       message: 'No members found',
@@ -513,9 +534,9 @@ export const getCollectors = async () => {
       getOfficeBearers(),
       getLocalSecretaries(),
     ]);
-    
+
     const collectorMap = new Map(); // Use Map to avoid duplicates
-    
+
     // Add executive members
     if (executiveRes.success && executiveRes.members) {
       executiveRes.members.forEach(m => {
@@ -531,7 +552,7 @@ export const getCollectors = async () => {
         }
       });
     }
-    
+
     // Add office bearers
     if (bearersRes.success && bearersRes.bearers) {
       bearersRes.bearers.forEach(b => {
@@ -546,7 +567,7 @@ export const getCollectors = async () => {
         }
       });
     }
-    
+
     // Add local secretaries
     if (secretariesRes.success && secretariesRes.members) {
       secretariesRes.members.forEach(s => {
@@ -562,11 +583,11 @@ export const getCollectors = async () => {
         }
       });
     }
-    
+
     const collectors = Array.from(collectorMap.values());
-    
+
     console.log('✅ Collectors loaded (no duplicates):', collectors.length);
-    
+
     return {
       success: true,
       collectors,
@@ -583,7 +604,7 @@ export const getCollectors = async () => {
 // ============================================================
 // HELPER: Prepare Payment Payload
 // ============================================================
-export const preparePaymentPayload = (formData) => {
+export const preparePaymentPayload = formData => {
   return {
     date: formData.date, // YYYY-MM-DD
     regNo: formData.regNo || '',
@@ -614,22 +635,24 @@ export const preparePaymentPayload = (formData) => {
 export const getReferralLinkPeople = async (filters = {}) => {
   try {
     console.log('👥 Fetching referral link people...');
-    
+
     const queryParams = {
-      isPagination: filters.isPagination !== undefined ? filters.isPagination : false,
+      isPagination:
+        filters.isPagination !== undefined ? filters.isPagination : false,
       page: filters.page || 1,
       limit: filters.limit || 100,
       sortBy: filters.sortBy || 'recent',
     };
 
     const queryString = new URLSearchParams(queryParams).toString();
-    
+
     // Get data from three sources: office bearers, executives, and local secretaries
-    const [bearersResponse, executiveResponse, secretariesResponse] = await Promise.all([
-      api.get(`office-bearer?${queryString}`),
-      api.get(`executive-member?${queryString}`),
-      api.get(`local-secretary?${queryString}`),
-    ]);
+    const [bearersResponse, executiveResponse, secretariesResponse] =
+      await Promise.all([
+        api.get(`office-bearer?${queryString}`),
+        api.get(`executive-member?${queryString}`),
+        api.get(`local-secretary?${queryString}`),
+      ]);
 
     const bearers = bearersResponse?.data?.data?.bearers || [];
     const executives = executiveResponse?.data?.data?.members || [];
@@ -689,19 +712,256 @@ export const getReferralLinkPeople = async (filters = {}) => {
 };
 
 // ============================================================
-// 20. BUILD REFERRAL URL
+// INCOME & EXPENDITURE SUMMARY FUNCTIONS
 // ============================================================
+
+/**
+ * Fetch Income & Expenditure Statements with filters
+ * @param {Object} filters - Filter parameters
+ * @param {string} filters.fromDate - From date (YYYY-MM-DD)
+ * @param {string} filters.toDate - To date (YYYY-MM-DD)
+ * @param {string} filters.status - Status filter (Draft, Submitted, Approved)
+ * @param {number} filters.page - Page number (default: 1)
+ * @param {number} filters.limit - Records per page (default: 50)
+ * @returns {Promise} Statements data
+ */
+export const fetchIncomeExpenditureStatements = async (filters = {}) => {
+  try {
+    console.log('📊 Fetching Income & Expenditure statements...', filters);
+
+    const queryParams = {
+      page: filters.page || 1,
+      limit: filters.limit || 50,
+      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      ...(filters.fromDate && { fromDate: filters.fromDate }),
+      ...(filters.toDate && { toDate: filters.toDate }),
+      ...(filters.status && filters.status !== 'All Status' && { status: filters.status }),
+    };
+
+    // Remove empty params
+    Object.keys(queryParams).forEach(key => !queryParams[key] && delete queryParams[key]);
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    console.log('Query string:', queryString);
+
+    const response = await api.get(`income-expendature?${queryString}`);
+    const data = response.data;
+
+    console.log('✅ Raw response:', data);
+
+    // Handle different response formats
+    if (data.statusCode === 200 && data.data) {
+      console.log('✅ Income & Expenditure statements fetched (format 1)');
+      return {
+        success: true,
+        statements: data.data.statements || [],
+        total: data.data.total || 0,
+        totalPages: data.data.totalPages || 1,
+        currentPage: data.data.currentPage || 1,
+      };
+    }
+
+    // Alternative format: direct array response
+    if (Array.isArray(data)) {
+      console.log('✅ Income & Expenditure statements fetched (format 2 - array)');
+      return {
+        success: true,
+        statements: data,
+        total: data.length,
+        totalPages: 1,
+        currentPage: 1,
+      };
+    }
+
+    // Alternative format: data.data is array
+    if (Array.isArray(data.data)) {
+      console.log('✅ Income & Expenditure statements fetched (format 3 - data.data array)');
+      return {
+        success: true,
+        statements: data.data,
+        total: data.data.length,
+        totalPages: 1,
+        currentPage: 1,
+      };
+    }
+
+    console.log('⚠️ Unexpected response format:', data);
+
+    return {
+      success: false,
+      message: 'Failed to fetch Income & Expenditure statements - unexpected format',
+      statements: [],
+      total: 0,
+      totalPages: 1,
+      currentPage: 1,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching Income & Expenditure statements:', error);
+    console.error('Error response:', error.response?.data);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Error fetching statements',
+      statements: [],
+      total: 0,
+      totalPages: 1,
+      currentPage: 1,
+    };
+  }
+};
+
+/**
+ * Get single Income & Expenditure Statement
+ * @param {string} statementId - Statement ID
+ * @returns {Promise} Statement data
+ */
+export const getIncomeExpenditureStatement = async (statementId) => {
+  try {
+    console.log('📄 Fetching Income & Expenditure statement...');
+
+    const response = await api.get(`income-expendature/${statementId}`);
+    const data = response.data;
+
+    if (data.statusCode === 200 && data.data) {
+      console.log('✅ Statement fetched successfully');
+      return {
+        success: true,
+        statement: data.data,
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Failed to fetch statement',
+      statement: null,
+    };
+  } catch (error) {
+    console.error('❌ Error fetching statement:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Error fetching statement',
+      statement: null,
+    };
+  }
+};
+
+/**
+ * Create new Income & Expenditure Statement
+ * @param {Object} payload - Statement data
+ * @returns {Promise} Created statement
+ */
+export const createIncomeExpenditureStatement = async (payload) => {
+  try {
+    console.log('📝 Creating Income & Expenditure statement...');
+
+    const response = await api.post('income-expendature', payload);
+    const data = response.data;
+
+    if (data.statusCode === 201 || data.statusCode === 200) {
+      console.log('✅ Statement created successfully');
+      return {
+        success: true,
+        message: 'Statement created successfully',
+        statement: data.data,
+      };
+    }
+
+    return {
+      success: false,
+      message: data.message || 'Failed to create statement',
+      statement: null,
+    };
+  } catch (error) {
+    console.error('❌ Error creating statement:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to create statement',
+      statement: null,
+    };
+  }
+};
+
+/**
+ * Update Income & Expenditure Statement
+ * @param {string} statementId - Statement ID
+ * @param {Object} payload - Updated data
+ * @returns {Promise} Updated statement
+ */
+export const updateIncomeExpenditureStatement = async (statementId, payload) => {
+  try {
+    console.log('✏️ Updating Income & Expenditure statement...');
+
+    const response = await api.put(`income-expendature/${statementId}`, payload);
+    const data = response.data;
+
+    if (data.statusCode === 200) {
+      console.log('✅ Statement updated successfully');
+      return {
+        success: true,
+        message: 'Statement updated successfully',
+        statement: data.data,
+      };
+    }
+
+    return {
+      success: false,
+      message: data.message || 'Failed to update statement',
+      statement: null,
+    };
+  } catch (error) {
+    console.error('❌ Error updating statement:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to update statement',
+      statement: null,
+    };
+  }
+};
+
+/**
+ * Delete Income & Expenditure Statement
+ * @param {string} statementId - Statement ID
+ * @returns {Promise} Success response
+ */
+export const deleteIncomeExpenditureStatement = async (statementId) => {
+  try {
+    console.log('🗑️ Deleting Income & Expenditure statement...');
+
+    const response = await api.delete(`income-expendature/${statementId}`);
+    const data = response.data;
+
+    if (data.statusCode === 200) {
+      console.log('✅ Statement deleted successfully');
+      return {
+        success: true,
+        message: 'Statement deleted successfully',
+      };
+    }
+
+    return {
+      success: false,
+      message: data.message || 'Failed to delete statement',
+    };
+  } catch (error) {
+    console.error('❌ Error deleting statement:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to delete statement',
+    };
+  }
+};
+
+
 export const buildReferralUrl = (person, fundType = 'corpus') => {
   const BASE_CORPUS = 'https://wazifaesadat.org/';
   const BASE_MEMBERSHIP = 'https://wazifaesadat.in/MakeaDonationorPayKhums';
-  
+
   const id = person?._id || person?.id || '';
   const name = encodeURIComponent(person?.name || person?.fullName || '');
-  
+
   if (fundType === 'membership' || fundType === 'donation') {
     return `${BASE_MEMBERSHIP}?ref=${id}&refName=${name}`;
   }
-  
+
   // Default to corpus
   return `${BASE_CORPUS}?ref=${id}&refName=${name}`;
 };
@@ -716,7 +976,8 @@ export const fetchPaymentsList = async (filters = {}) => {
     const queryParams = {
       page: filters.page || 1,
       limit: filters.limit || 50,
-      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      isPagination:
+        filters.isPagination !== undefined ? filters.isPagination : true,
       search: filters.search || '',
       paymentStatus: filters.paymentStatus || '',
       paymentGateway: filters.paymentGateway || '',
@@ -726,7 +987,7 @@ export const fetchPaymentsList = async (filters = {}) => {
 
     // Remove empty params
     Object.keys(queryParams).forEach(
-      key => !queryParams[key] && delete queryParams[key]
+      key => !queryParams[key] && delete queryParams[key],
     );
 
     const queryString = new URLSearchParams(queryParams).toString();
@@ -768,7 +1029,8 @@ export const fetchMemberCollectionReports = async (filters = {}) => {
     const queryParams = {
       page: filters.page || 1,
       limit: filters.limit || 10,
-      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      isPagination:
+        filters.isPagination !== undefined ? filters.isPagination : true,
       search: filters.search || '',
     };
 
@@ -785,7 +1047,7 @@ export const fetchMemberCollectionReports = async (filters = {}) => {
 
     // Remove empty params
     Object.keys(queryParams).forEach(
-      key => !queryParams[key] && delete queryParams[key]
+      key => !queryParams[key] && delete queryParams[key],
     );
 
     const queryString = new URLSearchParams(queryParams).toString();
@@ -817,7 +1079,7 @@ export const fetchMemberCollectionReports = async (filters = {}) => {
   }
 };
 
-export const createMemberCollectionReport = async (reportData) => {
+export const createMemberCollectionReport = async reportData => {
   try {
     console.log('📝 Creating member collection report...');
 
@@ -835,7 +1097,10 @@ export const createMemberCollectionReport = async (reportData) => {
     console.error('❌ Error creating collection report:', error);
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'Error creating report',
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        'Error creating report',
       report: null,
     };
   }
@@ -844,7 +1109,7 @@ export const createMemberCollectionReport = async (reportData) => {
 // ============================================================
 // HELPER: Format collectors for display (name + type)
 // ============================================================
-export const formatCollectorsForDisplay = (collectors) => {
+export const formatCollectorsForDisplay = collectors => {
   return collectors.map(c => ({
     _id: c._id,
     displayName: `${c.name} (${c.type})`,
@@ -856,7 +1121,7 @@ export const formatCollectorsForDisplay = (collectors) => {
 // ============================================================
 // HELPER: Format fund types for display
 // ============================================================
-export const formatFundTypesForDisplay = (fundTypes) => {
+export const formatFundTypesForDisplay = fundTypes => {
   return fundTypes.map(f => ({
     _id: f._id,
     displayName: f.title,
@@ -871,10 +1136,11 @@ export const formatFundTypesForDisplay = (fundTypes) => {
 export const searchScholarshipForms = async (searchTerm = '', options = {}) => {
   try {
     console.log('🔍 Searching scholarship forms...');
-    
+
     const queryParams = {
       search: searchTerm,
-      isPagination: options.isPagination !== undefined ? options.isPagination : true,
+      isPagination:
+        options.isPagination !== undefined ? options.isPagination : true,
       limit: options.limit || 20,
       sortBy: options.sortBy || 'recent',
     };
@@ -882,7 +1148,7 @@ export const searchScholarshipForms = async (searchTerm = '', options = {}) => {
     const queryString = new URLSearchParams(queryParams).toString();
     const response = await api.get(`scholarshipForm?${queryString}`);
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data?.forms) {
       console.log('✅ Scholarship forms fetched successfully');
       return {
@@ -893,7 +1159,7 @@ export const searchScholarshipForms = async (searchTerm = '', options = {}) => {
         total: data.data.total || 0,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch scholarship forms',
@@ -915,12 +1181,13 @@ export const searchScholarshipForms = async (searchTerm = '', options = {}) => {
 export const fetchWazifaLedger = async (filters = {}) => {
   try {
     console.log('📊 Fetching wazifa ledger...');
-    
+
     const queryParams = {
       page: filters.page || 1,
       limit: filters.limit || 50,
       sortBy: filters.sortBy || 'recent',
-      isPagination: filters.isPagination !== undefined ? filters.isPagination : true,
+      isPagination:
+        filters.isPagination !== undefined ? filters.isPagination : true,
       paymentType: 'wazifaPayment',
       ...(filters.search && { search: filters.search }),
       ...(filters.wazifaNumber && { wazifaNumber: filters.wazifaNumber }),
@@ -933,15 +1200,15 @@ export const fetchWazifaLedger = async (filters = {}) => {
     const queryString = new URLSearchParams(queryParams).toString();
     const response = await api.get(`payment-entry?${queryString}`);
     const data = response.data;
-    
+
     if (data.statusCode === 200 && data.data) {
       console.log('✅ Wazifa ledger fetched successfully');
-      
+
       // Calculate credit/debit totals
       let totalCredit = 0;
       let totalDebit = 0;
       const ledgerData = data.data.data || [];
-      
+
       ledgerData.forEach(row => {
         const amount = Number(row.amount) || 0;
         if (row.paymentEntryType === 'credit') {
@@ -962,7 +1229,7 @@ export const fetchWazifaLedger = async (filters = {}) => {
         balance: totalDebit - totalCredit,
       };
     }
-    
+
     return {
       success: false,
       message: 'Failed to fetch wazifa ledger',
@@ -980,6 +1247,135 @@ export const fetchWazifaLedger = async (filters = {}) => {
       totalCredit: 0,
       totalDebit: 0,
       balance: 0,
+    };
+  }
+};
+
+/* ═══════════════════════════════════════════════════════
+   INCOME & EXPENDITURE FORM HELPER FUNCTIONS
+═══════════════════════════════════════════════════════ */
+
+/**
+ * Get Opening Balance for Income & Expenditure form
+ * @returns {Promise} Opening balance data
+ */
+export const getOpeningBalance = async () => {
+  try {
+    console.log('💰 Fetching opening balance...');
+
+    const response = await api.get('income-expendature/opening-balance');
+    const data = response.data;
+
+    if (data.statusCode === 200 && data.data) {
+      console.log('✅ Opening balance fetched');
+      return {
+        success: true,
+        openingBalance: data.data.openingBalance || 0,
+        previousStatementDate: data.data.previousStatementDate || '',
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Failed to fetch opening balance',
+      openingBalance: 0,
+      previousStatementDate: '',
+    };
+  } catch (error) {
+    console.error('❌ Error fetching opening balance:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Error fetching opening balance',
+      openingBalance: 0,
+      previousStatementDate: '',
+    };
+  }
+};
+
+/**
+ * Get Fund Type Report (Income data for date range)
+ * @param {string} fromDate - From date (YYYY-MM-DD)
+ * @param {string} toDate - To date (YYYY-MM-DD)
+ * @returns {Promise} Income data by fund type
+ */
+export const getFundTypeReport = async (fromDate, toDate) => {
+  try {
+    console.log('📊 Fetching fund type report...');
+
+    const queryString = new URLSearchParams({
+      fromDate,
+      toDate,
+    }).toString();
+
+    const response = await api.get(`payment-entry/fund-type-report?${queryString}`);
+    const data = response.data;
+
+    if (data.statusCode === 200 && data.data) {
+      console.log('✅ Fund type report fetched');
+      return {
+        success: true,
+        fundTypes: data.data.fundTypes || [],
+        summary: data.data.summary || { grandTotal: 0 },
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Failed to fetch fund type report',
+      fundTypes: [],
+      summary: { grandTotal: 0 },
+    };
+  } catch (error) {
+    console.error('❌ Error fetching fund type report:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Error fetching fund type report',
+      fundTypes: [],
+      summary: { grandTotal: 0 },
+    };
+  }
+};
+
+/**
+ * Get Expenditure Report (Expense data for date range)
+ * @param {string} fromDate - From date (YYYY-MM-DD)
+ * @param {string} toDate - To date (YYYY-MM-DD)
+ * @returns {Promise} Expenditure data by expense type
+ */
+export const getExpenditureReport = async (fromDate, toDate) => {
+  try {
+    console.log('📊 Fetching expenditure report...');
+
+    const queryString = new URLSearchParams({
+      fromDate,
+      toDate,
+    }).toString();
+
+    const response = await api.get(`expenditures/report?${queryString}`);
+    const data = response.data;
+
+    if (data.statusCode === 200 && data.data) {
+      console.log('✅ Expenditure report fetched');
+      return {
+        success: true,
+        expenses: data.data.expenses || [],
+        summary: data.data.summary || { grandTotal: 0 },
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Failed to fetch expenditure report',
+      expenses: [],
+      summary: { grandTotal: 0 },
+    };
+  } catch (error) {
+    console.error('❌ Error fetching expenditure report:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Error fetching expenditure report',
+      expenses: [],
+      summary: { grandTotal: 0 },
     };
   }
 };

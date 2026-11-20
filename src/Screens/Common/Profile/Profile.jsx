@@ -1,20 +1,9 @@
 import React, { useState } from 'react';
-
-import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Alert,
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 
 import { useSelector, useDispatch } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { getProfile } from '../../../api/auth';
 import { setUser } from '../../../redux/slice/userSlice';
 
@@ -22,11 +11,31 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 
 import Colors from '../../../themes/colors';
 import { FontFamily, FontSize } from '../../../themes/typography';
-import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
-import { widthPercentageToDP as hp } from 'react-native-responsive-screen';
+import {
+  widthPercentageToDP as wp,
+  heightPercentageToDP as hp,
+} from 'react-native-responsive-screen';
+
 import AppLayout from '../../../components/AppLayout/AppLayout';
 import BackHeader from '../../../components/BackHeader/BackHeader';
 import BottomNav from '../../../components/BottomNav/BottomNav';
+
+// ─────────────────────────────────────────
+// Info Row Component
+// ─────────────────────────────────────────
+
+const InfoRow = ({ icon, label, value }) => (
+  <View style={styles.infoRow}>
+    <View style={styles.infoIcon}>
+      <MaterialCommunityIcons name={icon} size={20} color={Colors.primary} />
+    </View>
+
+    <View style={styles.infoContent}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value || 'Not Available'}</Text>
+    </View>
+  </View>
+);
 
 // ─────────────────────────────────────────
 // Profile Screen
@@ -34,28 +43,14 @@ import BottomNav from '../../../components/BottomNav/BottomNav';
 
 const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { loginData, profile, associateDetails, permissions, role } = useSelector(
-    state => state.user,
-  );
+  const { loginData, profile, role } = useSelector(state => state.user);
 
-  const [imageError, setImageError] = useState(false);
-
-  console.log('📋 Profile Data:', {
-    profile,
-    loginData,
-    permissions,
-    role,
-  });
-
-  // ─────────────────────────────────────
-  // Fetch Profile on Screen Focus
-  // ─────────────────────────────────────
   useFocusEffect(
     React.useCallback(() => {
       const fetchProfile = async () => {
         try {
           const result = await getProfile();
-          if (result.success && result.user) {
+          if (result?.success && result?.user) {
             dispatch(setUser(result.user));
           }
         } catch (error) {
@@ -64,10 +59,6 @@ const ProfileScreen = ({ navigation }) => {
       };
 
       fetchProfile();
-
-      return () => {
-        // Cleanup if needed
-      };
     }, [dispatch]),
   );
 
@@ -75,94 +66,16 @@ const ProfileScreen = ({ navigation }) => {
     if (key === 'Profile') return;
     navigation?.navigate(key);
   };
+
   // ─────────────────────────────────────
   // User Information
   // ─────────────────────────────────────
 
   const fullName = profile?.name || loginData?.Name || 'Member';
-
   const email = profile?.email || loginData?.Email || 'Not Available';
-
   const phone = profile?.phone || loginData?.Phone || 'Not Available';
-
   const userRole = profile?.role || role || loginData?.role || 'Not Available';
-
   const gender = profile?.gender || loginData?.gender || 'Not Available';
-
-  // ─────────────────────────────────────
-  // Profile Photo
-  // ─────────────────────────────────────
-
-  const profilePhoto =
-    associateDetails?.ProfilePhoto ||
-    profile?.ProfilePhoto ||
-    loginData?.ProfilePhoto ||
-    null;
-
-  let photo = null;
-
-  if (profilePhoto) {
-    if (
-      profilePhoto.startsWith('data:image') ||
-      profilePhoto.startsWith('http')
-    ) {
-      photo = profilePhoto;
-    } else {
-      photo = `https://crm.spstates.com/${profilePhoto
-        .replace(/^(\.\.\/)+/, '')
-        .replace(/^\/+/, '')
-        .split(' ')
-        .join('%20')}`;
-    }
-  }
-
-  // ─────────────────────────────────────
-  // Information Row
-  // ─────────────────────────────────────
-
-  const InfoRow = ({ icon, label, value }) => (
-    <View style={styles.infoRow}>
-      <View style={styles.infoIcon}>
-        <MaterialCommunityIcons name={icon} size={21} color={Colors.primary} />
-      </View>
-
-      <View style={styles.infoContent}>
-        <Text style={styles.infoLabel}>{label}</Text>
-
-        <Text style={styles.infoValue}>{value || 'Not Available'}</Text>
-      </View>
-    </View>
-  );
-
-  // ─────────────────────────────────────
-  // Menu Row
-  // ─────────────────────────────────────
-
-  const MenuRow = ({ icon, title, onPress, danger = false }) => (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      style={styles.menuRow}
-      onPress={onPress}
-    >
-      <View style={[styles.menuIcon, danger && styles.dangerIcon]}>
-        <MaterialCommunityIcons
-          name={icon}
-          size={21}
-          color={danger ? Colors.danger : Colors.primary}
-        />
-      </View>
-
-      <Text style={[styles.menuTitle, danger && styles.dangerText]}>
-        {title}
-      </Text>
-
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={23}
-        color={Colors.placeHolderColor}
-      />
-    </TouchableOpacity>
-  );
 
   // ─────────────────────────────────────
   // Render
@@ -171,74 +84,26 @@ const ProfileScreen = ({ navigation }) => {
   return (
     <AppLayout>
       <View style={styles.container}>
-        <BackHeader navigation={navigation} title="Profile" />
+        <BackHeader
+          navigation={navigation}
+          title="Profile"
+          onBack={() => navigation && navigation.goBack()}
+        />
 
         <ScrollView
+          style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Profile Card */}
-
-          {/* <View style={styles.profileCard}>
-            <View style={styles.avatarWrapper}>
-              {photo && !imageError ? (
-                <Image
-                  source={{ uri: photo }}
-                  style={styles.profileImage}
-                  resizeMode="cover"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <MaterialCommunityIcons
-                  name="account"
-                  size={55}
-                  color={Colors.primary}
-                />
-              )}
-
-              <View style={styles.onlineIndicator} />
-            </View>
-
-            <Text style={styles.profileName}>{fullName}</Text>
-
-            <Text style={styles.designation}>{userRole}</Text>
-
-            <View style={styles.memberBadge}>
-              <MaterialCommunityIcons
-                name="check-decagram"
-                size={15}
-                color={Colors.primary}
-              />
-
-              <Text style={styles.memberBadgeText}>Member</Text>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.editButton}
-              onPress={() => navigation?.navigate('EditProfileScreen')}
-            >
-              <MaterialCommunityIcons
-                name="pencil-outline"
-                size={17}
-                color={Colors.white}
-              />
-
-              <Text style={styles.editButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-          </View> */}
-
           {/* Personal Information */}
-
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleWrapper}>
                 <MaterialCommunityIcons
                   name="account-outline"
-                  size={21}
+                  size={20}
                   color={Colors.primary}
                 />
-
                 <Text style={styles.sectionTitle}>Personal Information</Text>
               </View>
             </View>
@@ -259,65 +124,32 @@ const ProfileScreen = ({ navigation }) => {
 
             <View style={styles.rowDivider} />
 
-            <InfoRow icon="human" label="Gender" value={gender} />
+            <InfoRow icon="gender-male-female" label="Gender" value={gender} />
           </View>
 
           {/* Role Information */}
-
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleWrapper}>
                 <MaterialCommunityIcons
                   name="badge-account-outline"
-                  size={21}
+                  size={20}
                   color={Colors.primary}
                 />
-
                 <Text style={styles.sectionTitle}>Role Information</Text>
               </View>
             </View>
 
             <InfoRow
-              icon="badge-account-outline"
+              icon="shield-account-outline"
               label="Role"
               value={userRole}
             />
           </View>
-
-          {/* Account Settings */}
-
-          {/* <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleWrapper}>
-                <MaterialCommunityIcons
-                  name="cog-outline"
-                  size={21}
-                  color={Colors.primary}
-                />
-
-                <Text style={styles.sectionTitle}>Account Settings</Text>
-              </View>
-            </View>
-
-            <MenuRow
-              icon="lock-outline"
-              title="Change Password"
-              onPress={() => navigation?.navigate('ChangePassword')}
-            />
-
-            <View style={styles.rowDivider} />
-
-            <MenuRow
-              icon="cog-outline"
-              title="Settings"
-              onPress={() => navigation?.navigate('SettingScreen')}
-            />
-          </View> */}
-
         </ScrollView>
-      </View>
-                  <BottomNav active="Profile" onPress={handleTabPress} />
 
+        <BottomNav active="Profile" onPress={handleTabPress} />
+      </View>
     </AppLayout>
   );
 };
@@ -335,180 +167,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F6F3',
   },
 
-  // Header
-
-  header: {
-    height: hp('7%'),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-
-    paddingHorizontal: wp('4%'),
-
-    backgroundColor: Colors.white,
-
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.neutral.border,
-  },
-
-  backButton: {
-    width: wp('10%'),
-    height: wp('10%'),
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-
-  headerTitle: {
+  scrollView: {
     flex: 1,
-    fontSize: FontSize.lg,
-    fontFamily: FontFamily.semiBold,
-    color: Colors.TitleColor,
-    marginLeft: wp('2%'),
   },
-
-  headerAction: {
-    width: wp('10%'),
-    height: wp('10%'),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Scroll
 
   scrollContent: {
     paddingHorizontal: wp('4%'),
     paddingTop: hp('2%'),
-    paddingBottom: hp('4%'),
+    paddingBottom: hp('3%'),
   },
-
-  // Profile Card
-
-  profileCard: {
-    backgroundColor: Colors.white,
-    borderRadius: wp('4%'),
-
-    alignItems: 'center',
-
-    paddingVertical: hp('2.5%'),
-    paddingHorizontal: wp('4%'),
-
-    marginBottom: hp('2%'),
-  },
-
-  avatarWrapper: {
-    width: wp('25%'),
-    height: wp('25%'),
-
-    borderRadius: wp('12.5%'),
-
-    backgroundColor: Colors.primaryLight,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    borderWidth: 3,
-    borderColor: Colors.primaryLight,
-
-    overflow: 'visible',
-  },
-
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: wp('12.5%'),
-  },
-
-  onlineIndicator: {
-    position: 'absolute',
-    right: 0,
-    bottom: 2,
-
-    width: wp('4.5%'),
-    height: wp('4.5%'),
-
-    borderRadius: wp('2.25%'),
-
-    backgroundColor: Colors.success,
-
-    borderWidth: 2,
-    borderColor: Colors.white,
-  },
-
-  profileName: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.bold,
-    color: Colors.TitleColor,
-
-    marginTop: hp('1.5%'),
-  },
-
-  designation: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.medium,
-    color: Colors.secondary,
-
-    marginTop: hp('0.4%'),
-  },
-
-  memberBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    backgroundColor: Colors.primaryBg,
-
-    paddingHorizontal: wp('3%'),
-    paddingVertical: hp('0.6%'),
-
-    borderRadius: wp('5%'),
-
-    marginTop: hp('1%'),
-    gap: wp('1.5%'),
-  },
-
-  memberBadgeText: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.semiBold,
-    color: Colors.primary,
-  },
-
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    backgroundColor: Colors.primary,
-
-    paddingHorizontal: wp('7%'),
-    paddingVertical: hp('1.2%'),
-
-    borderRadius: wp('2.5%'),
-
-    marginTop: hp('2%'),
-
-    gap: wp('2%'),
-  },
-
-  editButtonText: {
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.semiBold,
-    color: Colors.white,
-  },
-
-  // Section Card
 
   sectionCard: {
     backgroundColor: Colors.white,
-
-    borderRadius: wp('4%'),
-
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.neutral.border,
     paddingHorizontal: wp('4%'),
-    paddingVertical: hp('1.5%'),
-
+    paddingVertical: hp('1.6%'),
     marginBottom: hp('1.8%'),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
 
   sectionHeader: {
-    paddingBottom: hp('1.5%'),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: hp('1.2%'),
+    marginBottom: hp('0.6%'),
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral.border,
   },
 
   sectionTitleWrapper: {
@@ -518,31 +209,24 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: FontSize.base,
-    fontFamily: FontFamily.semiBold,
+    fontSize: FontSize.md,
+    fontFamily: FontFamily.bold,
     color: Colors.TitleColor,
   },
-
-  // Info Rows
 
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-
-    paddingVertical: hp('1.2%'),
+    paddingVertical: hp('1.25%'),
   },
 
   infoIcon: {
-    width: wp('10%'),
-    height: wp('10%'),
-
-    borderRadius: wp('2.5%'),
-
-    backgroundColor: Colors.primaryBg,
-
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight || Colors.primaryBg,
     alignItems: 'center',
     justifyContent: 'center',
-
     marginRight: wp('3%'),
   },
 
@@ -551,74 +235,21 @@ const styles = StyleSheet.create({
   },
 
   infoLabel: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.sm || FontSize.sm,
     fontFamily: FontFamily.medium,
-    color: Colors.textMuted,
+    color: Colors.textSecondary || Colors.textMuted,
   },
 
   infoValue: {
     fontSize: FontSize.sm,
     fontFamily: FontFamily.semiBold,
-    color: Colors.textPrimary,
-
-    marginTop: hp('0.3%'),
+    color: Colors.TitleColor,
+    marginTop: 2,
   },
 
   rowDivider: {
     height: 1,
     backgroundColor: Colors.neutral.border,
-    marginLeft: wp('13%'),
-  },
-
-  // Menu Rows
-
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    minHeight: hp('6.5%'),
-  },
-
-  menuIcon: {
-    width: wp('10%'),
-    height: wp('10%'),
-
-    borderRadius: wp('2.5%'),
-
-    backgroundColor: Colors.primaryBg,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    marginRight: wp('3%'),
-  },
-
-  menuTitle: {
-    flex: 1,
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.medium,
-    color: Colors.textPrimary,
-  },
-
-  dangerIcon: {
-    backgroundColor: Colors.dangerBg,
-  },
-
-  dangerText: {
-    color: Colors.danger,
-  },
-
-  // Version
-
-  versionText: {
-    textAlign: 'center',
-
-    fontSize: FontSize.sm,
-    fontFamily: FontFamily.medium,
-
-    color: Colors.textMuted,
-
-    marginTop: hp('0.5%'),
-    marginBottom: hp('2%'),
+    marginLeft: 38 + wp('3%'),
   },
 });
