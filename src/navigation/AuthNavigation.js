@@ -22,6 +22,9 @@ import WazifaUserDashboard from '../Screens/Dashboard/WazifaUser/Dashboardscreen
 // Common screens
 import ProfileScreen from '../Screens/Common/Profile/Profile';
 import SettingsScreen from '../Screens/Common/SettingScreen/SettingScreen';
+import PrivacyPolicyScreen from '../Screens/Common/SettingScreen/PrivacyPolicyScreen';
+import TermsConditionsScreen from '../Screens/Common/SettingScreen/TermsConditionsScreen';
+import AboutAppScreen from '../Screens/Common/SettingScreen/AboutAppScreen';
 import MasterRegisterScreen from '../Screens/Common/MasterRegister/MasterRegister';
 import MemberProfileScreen from '../Screens/Common/MasterRegister/MemberProfile';
 import LetterRecordScreen from '../Screens/Common/Letterrecordscreen/Letterrecordscreen';
@@ -818,6 +821,10 @@ const AuthNavigation = () => {
       <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
 
       <Stack.Screen name="SettingScreen" component={SettingsScreen} />
+
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
+      <Stack.Screen name="AboutApp" component={AboutAppScreen} />
 
       <Stack.Screen name="Messaging" component={MessagingScreen} />
 

@@ -1,3 +1,5 @@
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAxiosInstance, setCachedToken } from './apiConfig';
 
 const authApi = createAxiosInstance('auth');
@@ -15,10 +17,10 @@ export const loginWithPassword = async (userId, password) => {
 
     if (response.data.success && response.data.data) {
       const token = response.data.data.authToken;
-      
+
       // Cache token for subsequent requests
       setCachedToken(token);
-      
+
       return {
         success: true,
         token: token,
@@ -48,13 +50,13 @@ export const getProfile = async () => {
     if (response.data.success && response.data.data?.user) {
       const userData = response.data.data.user;
       const permissions = userData.permissions || [];
-      
+
       console.log('✅ Profile API Response:');
       console.log('   - User:', userData.name);
       console.log('   - Role:', userData.role);
       console.log('   - Total Permissions:', permissions.length);
       console.log('   - Permissions:', permissions);
-      
+
       return {
         success: true,
         user: userData,
@@ -63,15 +65,19 @@ export const getProfile = async () => {
         message: response.data.message,
       };
     }
-    
+
     console.warn('Profile API error:', response.data.message);
-    return { success: false, message: response.data.message || 'Failed to fetch profile' };
+    return {
+      success: false,
+      message: response.data.message || 'Failed to fetch profile',
+    };
   } catch (error) {
     console.error('Profile error:', error.message);
     console.error('Profile error response:', error.response?.data);
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'Network error',
+      message:
+        error.response?.data?.message || error.message || 'Network error',
     };
   }
 };
@@ -204,6 +210,86 @@ export const createPassword = async (userId, password) => {
     return {
       success: false,
       message: error.response?.data?.message || error.message,
+    };
+  }
+};
+
+/**
+ * Upload Image to Cloudinary
+ * @param {object} file - File object with uri, type, name
+ * Returns: { success, imageUrl, message }
+ */
+export const uploadImage = async file => {
+  try {
+    // For React Native, we need to be careful with FormData
+    const formData = new FormData();
+
+    // Append file with proper structure for React Native
+    formData.append('file', {
+      uri: file.uri,
+      type: file.type || 'image/jpeg',
+      name: file.name || `image-${Date.now()}.jpg`,
+    });
+
+    console.log('📤 Starting upload:', {
+      name: file.name,
+      type: file.type,
+      uri: file.uri.substring(0, 50) + '...',
+    });
+
+    // Create a special instance for upload
+    const uploadInstance = axios.create({
+      baseURL: 'http://192.168.1.12:9004/api',
+      timeout: 30000,
+    });
+
+    // Add auth token to upload request
+    uploadInstance.interceptors.request.use(
+      async config => {
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (err) {
+          console.log('Token fetch error:', err);
+        }
+        return config;
+      },
+      error => Promise.reject(error),
+    );
+
+    // Don't manually set Content-Type for FormData - let axios handle it
+    const response = await uploadInstance.post('/upload/uploadImage', formData);
+
+    console.log('📤 Upload response:', response.data);
+
+    if (response.data.success && response.data.data?.imageUrl) {
+      return {
+        success: true,
+        imageUrl: response.data.data.imageUrl,
+        message: response.data.message || 'Image uploaded successfully',
+      };
+    }
+    return {
+      success: false,
+      message: response.data.message || 'Upload failed',
+    };
+  } catch (error) {
+    console.error('❌ Upload error - Message:', error.message);
+    if (error.response) {
+      console.error('   Response data:', error.response.data);
+      console.error('   Response status:', error.response.status);
+    } else if (error.request) {
+      console.error('   No response received - Network error');
+      console.error('   Request URL:', error.config?.url);
+      console.error('   Request method:', error.config?.method);
+    }
+
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || error.message || 'Upload failed',
     };
   }
 };

@@ -177,21 +177,21 @@ const SettingsScreen = ({ navigation, onLogout }) => {
           {/* <SectionTitle title="ACCOUNT SETTINGS" /> */}
 
           <View style={styles.sectionCard}>
-            {/* <SettingRow
+            <SettingRow
               icon="account-edit-outline"
               title="Edit Profile"
               subtitle="Update your personal information"
-              onPress={() => openUnderDevelopment('Edit Profile')}
-            /> */}
+              onPress={() => navigation.navigate('EditProfileScreen')}
+            />
 
             <View style={styles.divider} />
 
-            {/* <SettingRow
+            <SettingRow
               icon="lock-outline"
               title="Change Password"
               subtitle="Change your account password"
-              onPress={() => openUnderDevelopment('Change Password')}
-            /> */}
+              onPress={() => navigation.navigate('EditProfileScreen')}
+            />
           </View>
 
           {/* Privacy & Security */}
@@ -202,7 +202,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               icon="shield-lock-outline"
               title="Privacy Policy"
               subtitle="Read our privacy policy"
-              onPress={() => openUnderDevelopment('Privacy Policy')}
+              onPress={() => navigation.navigate('PrivacyPolicy')}
             />
 
             <View style={styles.divider} />
@@ -211,7 +211,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               icon="file-document-outline"
               title="Terms & Conditions"
               subtitle="Read terms of service"
-              onPress={() => openUnderDevelopment('Terms & Conditions')}
+              onPress={() => navigation.navigate('TermsConditions')}
             />
           </View>
 
@@ -232,7 +232,7 @@ const SettingsScreen = ({ navigation, onLogout }) => {
               icon="information-outline"
               title="About App"
               subtitle="Application information"
-              onPress={() => openUnderDevelopment('About App')}
+              onPress={() => navigation.navigate('AboutApp')}
             />
           </View>
 
